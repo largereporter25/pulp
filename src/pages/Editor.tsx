@@ -139,9 +139,9 @@ export default function Editor() {
 
   if (error) {
     return (
-      <div className="studio-bg grain flex min-h-screen flex-col items-center justify-center gap-4 text-center">
+      <div className="pulp-bg flex min-h-screen flex-col items-center justify-center gap-4 text-center">
         <p className="text-rose-300">{error}</p>
-        <button onClick={() => navigate("/")} className="text-amber-glow underline">
+        <button onClick={() => navigate("/")} className="text-pulp-gold underline">
           Back to library
         </button>
       </div>
@@ -150,8 +150,8 @@ export default function Editor() {
 
   if (!doc) {
     return (
-      <div className="studio-bg grain flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-ink-600" />
+      <div className="pulp-bg flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-pulp-gold/60" />
       </div>
     );
   }
@@ -166,18 +166,18 @@ export default function Editor() {
   const exportDoc: Document = { ...doc, title: tp.title || doc.title };
 
   return (
-    <div className="studio-bg grain min-h-screen">
+    <div className="pulp-bg min-h-screen">
       {/* Top bar */}
       <header
         className={cn(
-          "sticky top-0 z-30 border-b border-white/5 bg-ink-950/85 backdrop-blur-xl transition-opacity",
+          "sticky top-0 z-30 border-b border-white/5 bg-pulp-red-dark/85 backdrop-blur-xl transition-opacity",
           focusMode && "opacity-0 hover:opacity-100"
         )}
       >
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate("/")}
-            className="btn-press rounded-lg p-2 text-ink-600 hover:bg-ink-850 hover:text-white"
+            className="btn-press rounded-lg p-2 text-pulp-gold/60 hover:bg-pulp-red-deep/60 hover:text-white"
             data-testid="button-back"
             aria-label="Back"
           >
@@ -188,11 +188,11 @@ export default function Editor() {
             value={doc.title === "Untitled" ? "" : doc.title}
             onChange={(e) => patch({ title: e.target.value || "Untitled" })}
             placeholder="Untitled"
-            className="min-w-0 flex-1 bg-transparent font-serif text-lg text-white outline-none placeholder:text-ink-600"
+            className="min-w-0 flex-1 bg-transparent font-serif text-lg text-white outline-none placeholder:text-pulp-gold/60"
             data-testid="input-title"
           />
 
-          <div className="hidden items-center gap-1.5 text-xs text-ink-600 sm:flex">
+          <div className="hidden items-center gap-1.5 text-xs text-pulp-gold/60 sm:flex">
             {save === "saving" && (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving
@@ -212,7 +212,7 @@ export default function Editor() {
 
           <button
             onClick={() => setFocusMode((v) => !v)}
-            className="btn-press rounded-lg p-2 text-ink-600 hover:bg-ink-850 hover:text-white"
+            className="btn-press rounded-lg p-2 text-pulp-gold/60 hover:bg-pulp-red-deep/60 hover:text-white"
             data-testid="button-focus"
             aria-label="Focus mode"
           >
@@ -222,7 +222,7 @@ export default function Editor() {
           <div className="relative">
             <button
               onClick={() => setExportOpen((v) => !v)}
-              className="btn-press flex items-center gap-1.5 rounded-lg border border-white/10 bg-ink-850 px-3 py-2 text-sm text-white hover:bg-ink-800"
+              className="btn-press flex items-center gap-1.5 rounded-lg border border-white/10 bg-pulp-red-deep/60 px-3 py-2 text-sm text-white hover:bg-pulp-red-deep/80"
               data-testid="button-export"
             >
               <Download className="h-4 w-4" /> Export
@@ -230,13 +230,13 @@ export default function Editor() {
             {exportOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-ink-850 py-1 shadow-2xl scale-in">
+                <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-pulp-red-deep/60 py-1 shadow-2xl scale-in">
                   <button
                     onClick={() => {
                       printPDF(exportDoc, tp);
                       setExportOpen(false);
                     }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink-600 hover:bg-ink-800 hover:text-white"
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-pulp-gold/60 hover:bg-pulp-red-deep/80 hover:text-white"
                     data-testid="export-pdf"
                   >
                     <FileText className="h-4 w-4" /> Print / PDF
@@ -247,7 +247,7 @@ export default function Editor() {
                         download(`${exportDoc.title || "screenplay"}.fountain`, toFountain(exportDoc, tp));
                         setExportOpen(false);
                       }}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink-600 hover:bg-ink-800 hover:text-white"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-pulp-gold/60 hover:bg-pulp-red-deep/80 hover:text-white"
                       data-testid="export-fountain"
                     >
                       <Film className="h-4 w-4" /> Fountain (.fountain)
@@ -258,7 +258,7 @@ export default function Editor() {
                       download(`${exportDoc.title || "document"}.txt`, toPlainText(doc));
                       setExportOpen(false);
                     }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-ink-600 hover:bg-ink-800 hover:text-white"
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-pulp-gold/60 hover:bg-pulp-red-deep/80 hover:text-white"
                     data-testid="export-txt"
                   >
                     <Download className="h-4 w-4" /> Plain text (.txt)
@@ -274,12 +274,12 @@ export default function Editor() {
           <div className="border-t border-white/5">
             <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2">
               {/* View switch: Title Page / Script */}
-              <div className="flex items-center rounded-lg border border-white/10 bg-ink-850 p-0.5">
+              <div className="flex items-center rounded-lg border border-white/10 bg-pulp-red-deep/60 p-0.5">
                 <button
                   onClick={() => setView("title")}
                   className={cn(
                     "btn-press flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition",
-                    view === "title" ? "bg-ink-700 text-white" : "text-ink-600 hover:text-white"
+                    view === "title" ? "bg-pulp-red-deep text-white" : "text-pulp-gold/60 hover:text-white"
                   )}
                   data-testid="view-title"
                 >
@@ -289,7 +289,7 @@ export default function Editor() {
                   onClick={() => setView("script")}
                   className={cn(
                     "btn-press flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition",
-                    view === "script" ? "bg-ink-700 text-white" : "text-ink-600 hover:text-white"
+                    view === "script" ? "bg-pulp-red-deep text-white" : "text-pulp-gold/60 hover:text-white"
                   )}
                   data-testid="view-script"
                 >
@@ -334,12 +334,12 @@ export default function Editor() {
                 />
                 {/* hint strip */}
                 {!focusMode && (
-                  <div className="mt-10 border-t border-white/5 pt-4 text-[11px] text-ink-600">
-                    <span className="text-ink-500">Tab</span> cycles element ·{" "}
-                    <span className="text-ink-500">Enter</span> continues ·{" "}
-                    <span className="text-ink-500">⌥1–6</span> or the toolbar sets type · type{" "}
-                    <span className="font-mono text-ink-500">INT.</span> or{" "}
-                    <span className="font-mono text-ink-500">CUT TO:</span> for auto-format
+                  <div className="mt-10 border-t border-white/5 pt-4 text-[11px] text-pulp-gold/60">
+                    <span className="text-pulp-gold/75">Tab</span> cycles element ·{" "}
+                    <span className="text-pulp-gold/75">Enter</span> continues ·{" "}
+                    <span className="text-pulp-gold/75">⌥1–6</span> or the toolbar sets type · type{" "}
+                    <span className="font-mono text-pulp-gold/75">INT.</span> or{" "}
+                    <span className="font-mono text-pulp-gold/75">CUT TO:</span> for auto-format
                   </div>
                 )}
               </div>
@@ -360,11 +360,11 @@ export default function Editor() {
       {/* Status bar */}
       <footer
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-20 border-t border-white/5 bg-ink-950/85 backdrop-blur-xl transition-opacity",
+          "fixed bottom-0 left-0 right-0 z-20 border-t border-white/5 bg-pulp-red-dark/85 backdrop-blur-xl transition-opacity",
           focusMode && "opacity-0 hover:opacity-100"
         )}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-2.5 text-xs text-ink-600">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-2.5 text-xs text-pulp-gold/60">
           <span className="capitalize">{doc.mode}{isScript && view === "title" ? " · Title Page" : ""}</span>
           <div className="flex items-center gap-5">
             <span>{words.toLocaleString()} words</span>

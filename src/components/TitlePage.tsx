@@ -7,7 +7,7 @@ interface Props {
 }
 
 const field =
-  "w-full bg-transparent text-center outline-none placeholder:text-ink-700 caret-amber-glow";
+  "w-full bg-transparent text-center outline-none placeholder:text-pulp-gold/45 caret-pulp-gold";
 
 export default function TitlePage({ value, onChange, docTitle }: Props) {
   const set = (k: keyof TP, v: string) => onChange({ ...value, [k]: v });
@@ -22,19 +22,19 @@ export default function TitlePage({ value, onChange, docTitle }: Props) {
           className={`${field} text-2xl font-bold uppercase tracking-wide text-white`}
           data-testid="tp-title"
         />
-        <div className="py-6 text-sm text-ink-600">written by</div>
+        <div className="py-6 text-sm text-pulp-gold/60">written by</div>
         <input
           value={value.author || ""}
           onChange={(e) => set("author", e.target.value)}
           placeholder="Author Name"
-          className={`${field} text-lg text-ink-200`}
+          className={`${field} text-lg text-pulp-gold/90`}
           data-testid="tp-author"
         />
         <input
           value={value.basedOn || ""}
           onChange={(e) => set("basedOn", e.target.value)}
           placeholder="based on… (optional)"
-          className={`${field} pt-6 text-sm italic text-ink-400`}
+          className={`${field} pt-6 text-sm italic text-pulp-gold/70`}
           data-testid="tp-basedon"
         />
       </div>
@@ -44,7 +44,7 @@ export default function TitlePage({ value, onChange, docTitle }: Props) {
           value={value.draftDate || ""}
           onChange={(e) => set("draftDate", e.target.value)}
           placeholder="Draft date"
-          className="w-full bg-transparent text-left text-xs text-ink-500 outline-none placeholder:text-ink-700 caret-amber-glow"
+          className="w-full bg-transparent text-left text-xs text-pulp-gold/75 outline-none placeholder:text-pulp-gold/45 caret-pulp-gold"
           data-testid="tp-date"
         />
         <textarea
@@ -52,7 +52,7 @@ export default function TitlePage({ value, onChange, docTitle }: Props) {
           onChange={(e) => set("contact", e.target.value)}
           placeholder={"Contact\nemail · phone · representation"}
           rows={3}
-          className="w-full resize-none bg-transparent text-left text-xs text-ink-500 outline-none placeholder:text-ink-700 caret-amber-glow"
+          className="w-full resize-none bg-transparent text-left text-xs text-pulp-gold/75 outline-none placeholder:text-pulp-gold/45 caret-pulp-gold"
           data-testid="tp-contact"
         />
       </div>

@@ -173,7 +173,7 @@ export default function ScreenplayCanvas({
                     e.preventDefault();
                     setMenuFor(menuFor === el.id ? null : el.id);
                   }}
-                  className="flex items-center gap-1 rounded-md border border-white/10 bg-ink-800 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-glow/90 hover:bg-ink-700"
+                  className="flex items-center gap-1 rounded-md border border-white/10 bg-pulp-red-deep/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-pulp-gold/90 hover:bg-pulp-red-deep"
                 >
                   {ELEMENT_SHORT[el.type]}
                   <ChevronDown className="h-3 w-3 opacity-60" />
@@ -181,7 +181,7 @@ export default function ScreenplayCanvas({
                 {menuFor === el.id && (
                   <>
                     <div className="fixed inset-0 z-20" onMouseDown={() => setMenuFor(null)} />
-                    <div className="absolute right-0 top-7 z-30 w-44 overflow-hidden rounded-lg border border-white/10 bg-ink-800 py-1 shadow-2xl">
+                    <div className="absolute right-0 top-7 z-30 w-44 overflow-hidden rounded-lg border border-white/10 bg-pulp-red-deep/80 py-1 shadow-2xl">
                       {ELEMENT_ORDER.map((t) => (
                         <button
                           key={t}
@@ -192,12 +192,12 @@ export default function ScreenplayCanvas({
                             setMenuFor(null);
                           }}
                           className={cn(
-                            "flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-ink-700",
-                            t === el.type ? "text-amber-glow" : "text-ink-600 hover:text-white"
+                            "flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-pulp-red-deep",
+                            t === el.type ? "text-pulp-gold" : "text-pulp-gold/60 hover:text-white"
                           )}
                         >
                           {ELEMENT_LABELS[t]}
-                          <span className="text-ink-700">⌥{ELEMENT_NUMBER[t]}</span>
+                          <span className="text-pulp-gold/45">⌥{ELEMENT_NUMBER[t]}</span>
                         </button>
                       ))}
                     </div>

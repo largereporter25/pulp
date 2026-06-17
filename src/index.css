@@ -14,29 +14,19 @@ body,
 
 body {
   margin: 0;
-  background: #0a0a0c;
-  color: #e7e7ea;
-  font-family: "Inter", system-ui, sans-serif;
+  background: #c81d05;
+  color: #f4ab11;
+  font-family: "Playfair Display", Georgia, serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Subtle film-grain / vignette atmosphere on the canvas backdrop */
-.studio-bg {
+/* pulp.to red backdrop with a subtle warm radial bloom */
+.pulp-bg {
   background:
-    radial-gradient(120% 90% at 50% -10%, rgba(245, 185, 66, 0.06), transparent 55%),
-    radial-gradient(80% 60% at 50% 120%, rgba(70, 90, 140, 0.05), transparent 60%),
-    #0a0a0c;
-}
-
-.grain::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    radial-gradient(120% 90% at 22% 18%, rgba(255, 120, 60, 0.28), transparent 48%),
+    radial-gradient(90% 80% at 80% 60%, rgba(160, 20, 0, 0.35), transparent 55%),
+    #c81d05;
 }
 
 /* Scrollbars */
@@ -48,24 +38,50 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #26262d;
+  background: rgba(244, 171, 17, 0.35);
   border-radius: 8px;
-  border: 2px solid #0a0a0c;
+  border: 2px solid #c81d05;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a44;
+  background: rgba(244, 171, 17, 0.55);
 }
 
-/* The page/canvas — the document surface */
+/* The drop-shadowed display headline, pulp.to style */
+.pulp-headline {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 800;
+  color: #f4ab11;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  text-shadow: 3px 4px 0 rgba(25, 3, 0, 0.55);
+}
+
+/* The ASCII fish */
+.ascii-fish {
+  font-family: "JetBrains Mono", ui-mono, monospace;
+  color: rgba(244, 171, 17, 0.42);
+  font-size: 9px;
+  line-height: 1.05;
+  white-space: pre;
+  user-select: none;
+  letter-spacing: 0.5px;
+}
+
+.mono-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ===== Editor / writing surfaces ===== */
+/* Document surface — a warm parchment-on-red page */
 .page-surface {
-  background: #16161a;
+  background: rgba(255, 240, 200, 0.05);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 30px 80px -20px rgba(0, 0, 0, 0.8),
-    0 8px 24px -8px rgba(0, 0, 0, 0.6);
+    0 0 0 1px rgba(244, 171, 17, 0.18),
+    0 30px 80px -20px rgba(25, 3, 0, 0.7);
 }
 
-/* Screenplay typography — Courier-based monospace, the industry standard */
 .script-font {
   font-family: "Courier Prime", "Courier New", monospace;
   font-size: 16px;
@@ -73,7 +89,6 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* element editing field reset */
 .el-input {
   background: transparent;
   border: none;
@@ -85,17 +100,16 @@ body {
   display: block;
 }
 .el-input::placeholder {
-  color: #4a4a52;
+  color: rgba(244, 171, 17, 0.32);
 }
 
-/* Caret accent */
 .el-input,
 [contenteditable] {
-  caret-color: #f5b942;
+  caret-color: #f4ab11;
 }
 
 .fade-up {
-  animation: fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes fade-in {
   from {
@@ -108,19 +122,15 @@ body {
   }
 }
 
-.glow-ring {
-  box-shadow: 0 0 0 1px rgba(245, 185, 66, 0.35), 0 0 24px -4px rgba(245, 185, 66, 0.25);
-}
-
 .btn-press {
-  transition: transform 0.12s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.12s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease,
+    opacity 0.18s ease;
 }
 .btn-press:active {
   transform: scale(0.97);
 }
 
-/* selection */
 ::selection {
-  background: rgba(245, 185, 66, 0.28);
-  color: #fff;
+  background: rgba(244, 171, 17, 0.35);
+  color: #190300;
 }

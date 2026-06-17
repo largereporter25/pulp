@@ -78,17 +78,17 @@ export interface ElementStyle {
 export function styleFor(type: ScreenplayElementType): ElementStyle {
   switch (type) {
     case "scene":
-      return { marginLeft: "0", marginRight: "0", textAlign: "left", uppercase: true, bold: true, italic: false, marginTop: "1.5em", color: "#f3f3f5" };
+      return { marginLeft: "0", marginRight: "0", textAlign: "left", uppercase: true, bold: true, italic: false, marginTop: "1.5em", color: "#f4ab11" };
     case "action":
-      return { marginLeft: "0", marginRight: "0", textAlign: "left", uppercase: false, bold: false, italic: false, marginTop: "1em", color: "#d6d6db" };
+      return { marginLeft: "0", marginRight: "0", textAlign: "left", uppercase: false, bold: false, italic: false, marginTop: "1em", color: "rgba(244,171,17,0.85)" };
     case "character":
-      return { marginLeft: "22ch", marginRight: "0", textAlign: "left", uppercase: true, bold: false, italic: false, marginTop: "1.1em", color: "#f3f3f5" };
+      return { marginLeft: "22ch", marginRight: "0", textAlign: "left", uppercase: true, bold: false, italic: false, marginTop: "1.1em", color: "#f4ab11" };
     case "parenthetical":
-      return { marginLeft: "16ch", marginRight: "18ch", textAlign: "left", uppercase: false, bold: false, italic: false, marginTop: "0.05em", color: "#a4a4ad" };
+      return { marginLeft: "16ch", marginRight: "18ch", textAlign: "left", uppercase: false, bold: false, italic: false, marginTop: "0.05em", color: "rgba(244,171,17,0.6)" };
     case "dialogue":
-      return { marginLeft: "11ch", marginRight: "14ch", textAlign: "left", uppercase: false, bold: false, italic: false, marginTop: "0.05em", color: "#e7e7ea" };
+      return { marginLeft: "11ch", marginRight: "14ch", textAlign: "left", uppercase: false, bold: false, italic: false, marginTop: "0.05em", color: "rgba(244,171,17,0.92)" };
     case "transition":
-      return { marginLeft: "0", marginRight: "0", textAlign: "right", uppercase: true, bold: false, italic: false, marginTop: "1.1em", color: "#e7e7ea" };
+      return { marginLeft: "0", marginRight: "0", textAlign: "right", uppercase: true, bold: false, italic: false, marginTop: "1.1em", color: "rgba(244,171,17,0.92)" };
   }
 }
 

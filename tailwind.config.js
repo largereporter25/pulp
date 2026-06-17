@@ -4,21 +4,24 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        mono: ['"Courier Prime"', '"Courier New"', "monospace"],
+        // Display serif (Granada-Serial equivalent) + body serif
+        display: ['"Playfair Display"', "Georgia", "serif"],
+        serif: ['"Playfair Display"', "Georgia", "serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+        // screenplay surface stays Courier for industry fidelity
+        script: ['"Courier Prime"', '"Courier New"', "monospace"],
         sans: ['"Inter"', "system-ui", "sans-serif"],
-        serif: ['"Newsreader"', "Georgia", "serif"],
       },
       colors: {
-        ink: {
-          950: "#0a0a0c",
-          900: "#0e0e11",
-          850: "#141418",
-          800: "#1a1a1f",
-          700: "#26262d",
-          600: "#3a3a44",
-        },
-        amber: {
-          glow: "#f5b942",
+        // pulp.to palette
+        pulp: {
+          red: "#c81d05",
+          "red-deep": "#a81704",
+          "red-dark": "#190300",
+          gold: "#f4ab11",
+          "gold-soft": "rgba(244,171,17,0.72)",
+          "gold-dim": "rgba(244,171,17,0.45)",
+          "gold-faint": "rgba(244,171,17,0.16)",
         },
       },
       keyframes: {
@@ -32,7 +35,7 @@ export default {
         },
       },
       animation: {
-        "fade-in": "fade-in 0.4s cubic-bezier(0.22,1,0.36,1)",
+        "fade-in": "fade-in 0.5s cubic-bezier(0.22,1,0.36,1)",
         "scale-in": "scale-in 0.3s cubic-bezier(0.22,1,0.36,1)",
       },
     },
