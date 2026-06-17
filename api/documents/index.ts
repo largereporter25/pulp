@@ -1,8 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sql } from "../_db";
+import { neon } from "@neondatabase/serverless";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    const url = process.env.DATABASE_URL;
+    if (!url) return res.status(500).json({ error: "DATABASE_URL missing" });
+    const sql = neon(url);
+
     if (req.method === "GET") {
       const rows = await sql`
         SELECT id, title, mode, content, synopsis, created_at, updated_at
@@ -31,6 +35,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err: any) {
     console.error("documents/index error", err);
-    return res.status(500).json({ error: err?.message ?? "Server error" });
+    return res.status(500).json({ error: err?.message ?? "Server error", stack: String(err?.stack || "") });
   }
 }

@@ -1,11 +1,15 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sql } from "../_db";
+import { neon } from "@neondatabase/serverless";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const id = req.query.id as string;
   if (!id) return res.status(400).json({ error: "Missing id" });
 
   try {
+    const url = process.env.DATABASE_URL;
+    if (!url) return res.status(500).json({ error: "DATABASE_URL missing" });
+    const sql = neon(url);
+
     if (req.method === "GET") {
       const rows = await sql`
         SELECT id, title, mode, content, synopsis, created_at, updated_at
