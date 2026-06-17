@@ -20,6 +20,15 @@ export interface TextBlock {
 export const WRITING_MODES = ["screenplay", "poem", "song", "prose"] as const;
 export type WritingMode = (typeof WRITING_MODES)[number];
 
+// Title-page front matter (stored on the document, used for screenplays).
+export interface TitlePage {
+  title: string;
+  author: string;
+  basedOn: string;
+  contact: string;
+  draftDate: string;
+}
+
 export interface Document {
   id: string;
   title: string;

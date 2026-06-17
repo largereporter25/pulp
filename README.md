@@ -6,7 +6,9 @@
 
 ## Features
 
-- **Screenplay engine** — Industry-standard formatting (Scene / Action / Character / Dialogue / Parenthetical / Transition) with `Tab` to cycle elements, `Enter` to continue intelligently, smart auto-capitalization, and auto-detection of scene headings & transitions.
+- **Screenplay engine** — Industry-standard formatting (Scene / Action / Character / Dialogue / Parenthetical / Transition) with a persistent formatting toolbar, `Tab` to cycle elements, `Enter` to continue intelligently, `⌥1–6` to set element type, smart auto-capitalization, and auto-detection of scene headings & transitions.
+- **Title Page** — Standard screenplay front matter (title, author, based-on, draft date, contact) on a dedicated, switchable page that exports with the script.
+- **Transition menu** — One-click insert of the common transitions (CUT TO:, DISSOLVE TO:, SMASH CUT TO:, and more).
 - **Four writing modes** — Screenplay, Poem, Song, and Prose, each with its own typographic soul.
 - **The page is a canvas** — A floating, cinematic dark-studio surface, not just a text box.
 - **Cloud autosave** — Every keystroke persists to Neon Postgres. Pick up anywhere.
