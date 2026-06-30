@@ -1,37 +1,64 @@
-import type { Document, WritingMode, ScreenplayElement, TextBlock } from "@shared/types";
+const BASE = '/api/v2';
 
-const BASE = "/api";
+export interface Document {
+  id: string;
+  title: string;
+  mode: 'screenplay' | 'prose' | 'poem' | 'song' | 'notes';
+  content: string;
+  synopsis: string;
+  tags: string[];
+  canvas_x: number;
+  canvas_y: number;
+  word_count: number;
+  page_count: number;
+  created_at: string;
+  updated_at: string;
+}
 
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg || `Request failed (${res.status})`);
-  }
+export interface CanvasDoc {
+  id: string;
+  title: string;
+  mode: string;
+  x: number;
+  y: number;
+  word_count: number;
+  page_count: number;
+  updated_at: string;
+}
+
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}`);
   if (res.status === 204) return undefined as T;
   return res.json();
 }
 
 export const api = {
-  list: () => fetch(`${BASE}/documents`).then((r) => json<Document[]>(r)),
+  listDocuments: (params?: { mode?: string; q?: string; tag?: string }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return req<Document[]>('GET', `/documents${qs ? '?' + qs : ''}`);
+  },
+  createDocument: (data: Partial<Document>) =>
+    req<Document>('POST', '/documents', data),
+  getDocument: (id: string) => req<Document>('GET', `/documents/${id}`),
+  updateDocument: (id: string, data: Partial<Document>) =>
+    req<Document>('PATCH', `/documents/${id}`, data),
+  deleteDocument: (id: string) => req<void>('DELETE', `/documents/${id}`),
+  duplicateDocument: (id: string) =>
+    req<Document>('POST', `/documents/${id}/duplicate`),
 
-  get: (id: string) => fetch(`${BASE}/documents/${id}`).then((r) => json<Document>(r)),
+  getCanvasState: () => req<{ documents: CanvasDoc[] }>('GET', '/canvas/state'),
+  updateCanvasPositions: (positions: { id: string; x: number; y: number }[]) =>
+    req<{ updated: number }>('PATCH', '/canvas/positions', positions),
 
-  create: (data: { title?: string; mode?: WritingMode; content?: unknown; synopsis?: string }) =>
-    fetch(`${BASE}/documents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((r) => json<Document>(r)),
+  search: (q: string) => req<Document[]>('GET', `/search?q=${encodeURIComponent(q)}`),
+  backlinks: (id: string) =>
+    req<{ id: string; title: string; mode: string }[]>('GET', `/backlinks/${id}`),
 
-  update: (
-    id: string,
-    data: Partial<{ title: string; mode: WritingMode; content: ScreenplayElement[] | TextBlock[]; synopsis: string }>
-  ) =>
-    fetch(`${BASE}/documents/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((r) => json<Document>(r)),
-
-  remove: (id: string) => fetch(`${BASE}/documents/${id}`, { method: "DELETE" }).then((r) => json<void>(r)),
+  exportUrl: (id: string, format: 'pdf' | 'fountain' | 'docx' | 'txt') =>
+    `${BASE}/documents/${id}/export/${format}`,
 };

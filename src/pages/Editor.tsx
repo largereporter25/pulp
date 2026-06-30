@@ -1,375 +1,246 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useRoute, useLocation } from "wouter";
-import {
-  ArrowLeft,
-  Check,
-  Loader2,
-  Download,
-  FileText,
-  Film,
-  Maximize2,
-  Minimize2,
-  Cloud,
-  FileSignature,
-  Clapperboard,
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { Logo } from "@/components/Logo";
-import ScreenplayCanvas from "@/components/ScreenplayCanvas";
-import FreeformCanvas from "@/components/FreeformCanvas";
-import FormatToolbar from "@/components/FormatToolbar";
-import TitlePageView from "@/components/TitlePage";
-import { estimatePages } from "@/lib/screenplay";
-import { toFountain, toPlainText, download, printPDF } from "@/lib/export";
-import type {
-  Document,
-  ScreenplayElement,
-  ScreenplayElementType,
-  TextBlock,
-  TitlePage,
-} from "@shared/types";
-import { nanoid } from "nanoid";
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { api } from '../lib/api';
+import type { Document } from '../lib/api';
+import type { WritingMode } from '../types';
+import { MODE_META } from '../types';
+import WritingEditor from '../components/WritingEditor';
 
-type SaveState = "idle" | "saving" | "saved" | "error";
-
-const EMPTY_TP: TitlePage = { title: "", author: "", basedOn: "", contact: "", draftDate: "" };
-
-function parseTP(synopsis: string): TitlePage {
-  try {
-    const o = JSON.parse(synopsis || "{}");
-    return { ...EMPTY_TP, ...o };
-  } catch {
-    return EMPTY_TP;
-  }
+interface Props {
+  docId: string;
+  onBack: () => void;
 }
 
-export default function Editor() {
-  const [, params] = useRoute("/doc/:id");
-  const [, navigate] = useLocation();
-  const id = params?.id;
+type SaveState = 'saved' | 'saving' | 'unsaved';
 
+export default function Editor({ docId, onBack }: Props) {
   const [doc, setDoc] = useState<Document | null>(null);
-  const [tp, setTp] = useState<TitlePage>(EMPTY_TP);
-  const [error, setError] = useState<string | null>(null);
-  const [save, setSave] = useState<SaveState>("idle");
+  const [saveState, setSaveState] = useState<SaveState>('saved');
   const [focusMode, setFocusMode] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [view, setView] = useState<"title" | "script">("script");
-  const [activeType, setActiveType] = useState<ScreenplayElementType | null>(null);
-
+  const [showExport, setShowExport] = useState(false);
+  const [titleEditing, setTitleEditing] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef<Document | null>(null);
-  const setTypeFn = useRef<((t: ScreenplayElementType) => void) | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    api
-      .get(id)
-      .then((d) => {
-        setDoc(d);
-        latest.current = d;
-        setTp(parseTP(d.synopsis));
-      })
-      .catch((e) => setError(e.message));
-  }, [id]);
+    api.getDocument(docId).then(setDoc).catch(console.error);
+  }, [docId]);
 
-  const scheduleSave = useCallback(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSave("saving");
-    saveTimer.current = setTimeout(async () => {
-      const d = latest.current;
-      if (!d) return;
-      try {
-        await api.update(d.id, {
-          title: d.title,
-          content: d.content as ScreenplayElement[] | TextBlock[],
-          synopsis: d.synopsis,
-        });
-        setSave("saved");
-        setTimeout(() => setSave((s) => (s === "saved" ? "idle" : s)), 1800);
-      } catch (e: any) {
-        setError(e.message);
-        setSave("error");
-      }
-    }, 700);
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === '.') { e.preventDefault(); setFocusMode(f => !f); }
+      if (mod && e.key === 'e') { e.preventDefault(); setShowExport(s => !s); }
+      if (mod && e.key === 's') { e.preventDefault(); if (doc) persistDoc(doc); }
+      if (e.key === 'Escape') { setFocusMode(false); setShowExport(false); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [doc]);
+
+  const persistDoc = useCallback(async (d: Document) => {
+    setSaveState('saving');
+    try {
+      await api.updateDocument(d.id, { title: d.title, content: d.content, word_count: d.word_count });
+      setSaveState('saved');
+    } catch {
+      setSaveState('unsaved');
+    }
   }, []);
 
-  const patch = (p: Partial<Document>) => {
-    setDoc((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...p };
-      latest.current = next;
-      return next;
-    });
-    scheduleSave();
-  };
+  const handleChange = useCallback((content: string, wordCount: number) => {
+    if (!doc) return;
+    const updated = { ...doc, content, word_count: wordCount };
+    setDoc(updated);
+    setSaveState('unsaved');
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => persistDoc(updated), 1500);
+  }, [doc, persistDoc]);
 
-  const updateTP = (next: TitlePage) => {
-    setTp(next);
-    patch({ synopsis: JSON.stringify(next) });
-  };
-
-  // Insert a transition element at the end of the script.
-  const insertTransition = (text: string) => {
-    if (!doc || doc.mode !== "screenplay") return;
-    const els = doc.content as ScreenplayElement[];
-    const next: ScreenplayElement[] = [
-      ...els,
-      { id: nanoid(8), type: "transition", text },
-      { id: nanoid(8), type: "scene", text: "" },
-    ];
-    patch({ content: next });
-  };
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        scheduleSave();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
-        e.preventDefault();
-        setFocusMode((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [scheduleSave]);
-
-  if (error) {
-    return (
-      <div className="pulp-bg flex min-h-screen flex-col items-center justify-center gap-4 text-center">
-        <p className="text-rose-300">{error}</p>
-        <button onClick={() => navigate("/")} className="text-pulp-gold underline">
-          Back to library
-        </button>
-      </div>
-    );
-  }
+  const handleTitleChange = useCallback((title: string) => {
+    if (!doc) return;
+    const updated = { ...doc, title };
+    setDoc(updated);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => persistDoc(updated), 1500);
+  }, [doc, persistDoc]);
 
   if (!doc) {
     return (
-      <div className="pulp-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-pulp-gold/60" />
+      <div className="flex items-center justify-center h-screen" style={{ background: '#0d0d0d' }}>
+        <div style={{ color: 'rgba(245,185,66,0.3)', fontFamily: 'Inter' }}>Loading...</div>
       </div>
     );
   }
 
-  const isScript = doc.mode === "screenplay";
-  const plain = toPlainText(doc);
-  const words = plain.trim() ? plain.trim().split(/\s+/).length : 0;
-  const pages = isScript
-    ? estimatePages(doc.content as ScreenplayElement[])
-    : Math.max(1, Math.round((words / 250) * 10) / 10);
-
-  const exportDoc: Document = { ...doc, title: tp.title || doc.title };
+  const meta = MODE_META[doc.mode as WritingMode] || MODE_META.prose;
 
   return (
-    <div className="pulp-bg min-h-screen">
-      {/* Top bar */}
+    <div
+      className="flex flex-col h-screen"
+      style={{ background: '#0d0d0d', fontFamily: meta.font }}
+    >
+      {/* Header */}
       <header
-        className={cn(
-          "sticky top-0 z-30 border-b border-white/5 bg-pulp-red-dark/85 backdrop-blur-xl transition-opacity",
-          focusMode && "opacity-0 hover:opacity-100"
-        )}
+        className="flex items-center gap-3 px-4 transition-opacity duration-300"
+        style={{
+          height: 48,
+          background: '#1a0800',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0,
+          opacity: focusMode ? 0 : 1,
+          position: 'relative',
+          zIndex: 20,
+        }}
+        onMouseEnter={focusMode ? () => {} : undefined}
       >
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <button
-            onClick={() => navigate("/")}
-            className="btn-press rounded-lg p-2 text-pulp-gold/60 hover:bg-pulp-red-deep/60 hover:text-white"
-            data-testid="button-back"
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <Logo size={24} />
+        <button
+          className="text-sm transition-colors btn-press"
+          style={{ color: 'rgba(245,185,66,0.5)', fontFamily: 'Inter' }}
+          onClick={onBack}
+        >
+          ← Canvas
+        </button>
+
+        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)' }} />
+
+        <span style={{ fontSize: 16 }}>{meta.emoji}</span>
+
+        {titleEditing ? (
           <input
-            value={doc.title === "Untitled" ? "" : doc.title}
-            onChange={(e) => patch({ title: e.target.value || "Untitled" })}
-            placeholder="Untitled"
-            className="min-w-0 flex-1 bg-transparent font-serif text-lg text-white outline-none placeholder:text-pulp-gold/60"
-            data-testid="input-title"
+            autoFocus
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: '#f0ece0', fontFamily: 'Inter', maxWidth: 400 }}
+            value={doc.title}
+            onChange={e => handleTitleChange(e.target.value)}
+            onBlur={() => setTitleEditing(false)}
+            onKeyDown={e => e.key === 'Enter' && setTitleEditing(false)}
           />
-
-          <div className="hidden items-center gap-1.5 text-xs text-pulp-gold/60 sm:flex">
-            {save === "saving" && (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving
-              </>
-            )}
-            {save === "saved" && (
-              <>
-                <Check className="h-3.5 w-3.5 text-emerald-400" /> Saved
-              </>
-            )}
-            {(save === "idle" || save === "error") && (
-              <>
-                <Cloud className="h-3.5 w-3.5" /> {save === "error" ? "Retry pending" : "Synced"}
-              </>
-            )}
-          </div>
-
-          <button
-            onClick={() => setFocusMode((v) => !v)}
-            className="btn-press rounded-lg p-2 text-pulp-gold/60 hover:bg-pulp-red-deep/60 hover:text-white"
-            data-testid="button-focus"
-            aria-label="Focus mode"
+        ) : (
+          <span
+            className="flex-1 text-sm truncate cursor-pointer hover:opacity-80 transition-opacity"
+            style={{ color: '#f0ece0', fontFamily: 'Inter', maxWidth: 400 }}
+            onClick={() => setTitleEditing(true)}
           >
-            {focusMode ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}
-          </button>
+            {doc.title || 'Untitled'}
+          </span>
+        )}
 
-          <div className="relative">
-            <button
-              onClick={() => setExportOpen((v) => !v)}
-              className="btn-press flex items-center gap-1.5 rounded-lg border border-white/10 bg-pulp-red-deep/60 px-3 py-2 text-sm text-white hover:bg-pulp-red-deep/80"
-              data-testid="button-export"
-            >
-              <Download className="h-4 w-4" /> Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-pulp-red-deep/60 py-1 shadow-2xl scale-in">
-                  <button
-                    onClick={() => {
-                      printPDF(exportDoc, tp);
-                      setExportOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-pulp-gold/60 hover:bg-pulp-red-deep/80 hover:text-white"
-                    data-testid="export-pdf"
-                  >
-                    <FileText className="h-4 w-4" /> Print / PDF
-                  </button>
-                  {isScript && (
-                    <button
-                      onClick={() => {
-                        download(`${exportDoc.title || "screenplay"}.fountain`, toFountain(exportDoc, tp));
-                        setExportOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-pulp-gold/60 hover:bg-pulp-red-deep/80 hover:text-white"
-                      data-testid="export-fountain"
-                    >
-                      <Film className="h-4 w-4" /> Fountain (.fountain)
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      download(`${exportDoc.title || "document"}.txt`, toPlainText(doc));
-                      setExportOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-pulp-gold/60 hover:bg-pulp-red-deep/80 hover:text-white"
-                    data-testid="export-txt"
-                  >
-                    <Download className="h-4 w-4" /> Plain text (.txt)
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+        <div className="flex-1" />
+
+        {/* Save state */}
+        <div
+          className="text-xs transition-opacity duration-500"
+          style={{
+            color: saveState === 'saved' ? 'rgba(74,222,128,0.6)' : saveState === 'saving' ? 'rgba(245,185,66,0.6)' : 'rgba(255,100,100,0.6)',
+            fontFamily: 'Inter',
+            opacity: saveState === 'saved' ? 0.6 : 1,
+          }}
+        >
+          {saveState === 'saved' ? '✓ Saved' : saveState === 'saving' ? '◌ Saving...' : '● Unsaved'}
         </div>
 
-        {/* Secondary toolbar — element formatting (screenplay only) */}
-        {isScript && !focusMode && (
-          <div className="border-t border-white/5">
-            <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2">
-              {/* View switch: Title Page / Script */}
-              <div className="flex items-center rounded-lg border border-white/10 bg-pulp-red-deep/60 p-0.5">
-                <button
-                  onClick={() => setView("title")}
-                  className={cn(
-                    "btn-press flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition",
-                    view === "title" ? "bg-pulp-red-deep text-white" : "text-pulp-gold/60 hover:text-white"
-                  )}
-                  data-testid="view-title"
-                >
-                  <FileSignature className="h-3.5 w-3.5" /> Title Page
-                </button>
-                <button
-                  onClick={() => setView("script")}
-                  className={cn(
-                    "btn-press flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition",
-                    view === "script" ? "bg-pulp-red-deep text-white" : "text-pulp-gold/60 hover:text-white"
-                  )}
-                  data-testid="view-script"
-                >
-                  <Clapperboard className="h-3.5 w-3.5" /> Script
-                </button>
+        {/* Focus mode */}
+        <button
+          className="text-xs px-2 py-1 rounded transition-all btn-press"
+          style={{
+            background: focusMode ? 'rgba(245,185,66,0.15)' : 'transparent',
+            color: focusMode ? '#f5b942' : 'rgba(245,185,66,0.4)',
+            border: '1px solid rgba(245,185,66,0.15)',
+            fontFamily: 'Inter',
+          }}
+          onClick={() => setFocusMode(f => !f)}
+          title="Focus Mode (⌘.)" 
+        >
+          ⌘.
+        </button>
+
+        {/* Export */}
+        <div className="relative">
+          <button
+            className="text-xs px-3 py-1.5 rounded transition-all btn-press"
+            style={{
+              background: 'rgba(245,185,66,0.1)',
+              border: '1px solid rgba(245,185,66,0.2)',
+              color: '#f5b942',
+              fontFamily: 'Inter',
+            }}
+            onClick={() => setShowExport(s => !s)}
+          >
+            Export ▾
+          </button>
+          {showExport && (
+            <>
+              <div className="fixed inset-0" style={{ zIndex: 29 }} onClick={() => setShowExport(false)} />
+              <div
+                className="absolute right-0 top-full mt-1 rounded-lg overflow-hidden"
+                style={{
+                  background: '#1a0800',
+                  border: '1px solid rgba(245,185,66,0.2)',
+                  boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
+                  zIndex: 30,
+                  minWidth: 180,
+                }}
+              >
+                {(['pdf', 'fountain', 'docx', 'txt'] as const).map(fmt => (
+                  <a
+                    key={fmt}
+                    href={api.exportUrl(doc.id, fmt)}
+                    download
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                    style={{ color: '#f0ece0', fontFamily: 'Inter' }}
+                    onClick={() => setShowExport(false)}
+                  >
+                    <span style={{ color: meta.color }}>
+                      {fmt === 'pdf' ? '📄' : fmt === 'fountain' ? '⛲' : fmt === 'docx' ? '📝' : '📋'}
+                    </span>
+                    <span>.{fmt}</span>
+                    {fmt === 'fountain' && doc.mode !== 'screenplay' && (
+                      <span style={{ color: 'rgba(240,236,224,0.3)', fontSize: 10 }}>screenplay only</span>
+                    )}
+                  </a>
+                ))}
               </div>
-
-              <div className="h-5 w-px bg-white/10" />
-
-              {view === "script" && (
-                <FormatToolbar
-                  activeType={activeType}
-                  onSetType={(t) => setTypeFn.current?.(t)}
-                  onInsertTransition={insertTransition}
-                />
-              )}
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </header>
 
-      {/* The Canvas */}
-      <main className="mx-auto max-w-6xl px-4 pb-32 pt-8">
-        <div
-          className={cn(
-            "page-surface mx-auto rounded-xl px-8 py-12 transition-all sm:px-16 sm:py-16",
-            focusMode ? "max-w-3xl" : "max-w-4xl"
-          )}
-          style={{ minHeight: "70vh" }}
-        >
-          {isScript ? (
-            view === "title" ? (
-              <TitlePageView value={tp} onChange={updateTP} docTitle={doc.title} />
-            ) : (
-              <div className={cn("mx-auto", focusMode ? "pl-0" : "pl-0 sm:pl-36")} style={{ maxWidth: "62ch" }}>
-                <ScreenplayCanvas
-                  elements={doc.content as ScreenplayElement[]}
-                  onChange={(els) => patch({ content: els })}
-                  focusMode={focusMode}
-                  registerType={(fn) => (setTypeFn.current = fn)}
-                  onActiveTypeChange={setActiveType}
-                />
-                {/* hint strip */}
-                {!focusMode && (
-                  <div className="mt-10 border-t border-white/5 pt-4 text-[11px] text-pulp-gold/60">
-                    <span className="text-pulp-gold/75">Tab</span> cycles element ·{" "}
-                    <span className="text-pulp-gold/75">Enter</span> continues ·{" "}
-                    <span className="text-pulp-gold/75">⌥1–6</span> or the toolbar sets type · type{" "}
-                    <span className="font-mono text-pulp-gold/75">INT.</span> or{" "}
-                    <span className="font-mono text-pulp-gold/75">CUT TO:</span> for auto-format
-                  </div>
-                )}
-              </div>
-            )
-          ) : (
-            <div className="mx-auto max-w-2xl">
-              <FreeformCanvas
-                mode={doc.mode}
-                blocks={doc.content as TextBlock[]}
-                onChange={(b) => patch({ content: b })}
-                focusMode={focusMode}
-              />
-            </div>
-          )}
-        </div>
-      </main>
+      {/* Editor */}
+      <WritingEditor
+        docId={doc.id}
+        mode={doc.mode as WritingMode}
+        content={doc.content}
+        onChange={handleChange}
+        focusMode={focusMode}
+      />
 
-      {/* Status bar */}
+      {/* Footer status bar */}
       <footer
-        className={cn(
-          "fixed bottom-0 left-0 right-0 z-20 border-t border-white/5 bg-pulp-red-dark/85 backdrop-blur-xl transition-opacity",
-          focusMode && "opacity-0 hover:opacity-100"
-        )}
+        className="flex items-center justify-between px-6 transition-opacity duration-300"
+        style={{
+          height: 32,
+          background: '#1a0800',
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+          flexShrink: 0,
+          opacity: focusMode ? 0 : 1,
+          fontSize: 11,
+          fontFamily: 'Inter, system-ui',
+          color: 'rgba(240,236,224,0.35)',
+          zIndex: 20,
+        }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-2.5 text-xs text-pulp-gold/60">
-          <span className="capitalize">{doc.mode}{isScript && view === "title" ? " · Title Page" : ""}</span>
-          <div className="flex items-center gap-5">
-            <span>{words.toLocaleString()} words</span>
-            <span>~{pages} pages</span>
-          </div>
+        <div className="flex gap-3 items-center">
+          <span style={{ color: meta.color }}>{meta.emoji} {meta.label}</span>
+          <span>·</span>
+          <span>⌘. Focus</span>
+          <span>·</span>
+          <span>⌘E Export</span>
+        </div>
+        <div className="flex gap-3">
+          <span>{doc.word_count} words</span>
+          {doc.mode === 'screenplay' && <span>~{Math.max(1, Math.round(doc.word_count / 170))} pages</span>}
+          <span>·</span>
+          <span>Tab: next element</span>
         </div>
       </footer>
     </div>

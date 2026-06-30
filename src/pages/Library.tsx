@@ -1,272 +1,240 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
-import {
-  Clapperboard,
-  Feather,
-  Music,
-  BookOpen,
-  Plus,
-  Trash2,
-  FileText,
-  Loader2,
-  ArrowDown,
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/utils";
-import { Wordmark } from "@/components/Logo";
-import AsciiFish from "@/components/AsciiFish";
-import type { Document, WritingMode } from "@shared/types";
-import { MODE_META } from "@shared/types";
+import { useEffect, useState, useCallback } from 'react';
+import { api } from '../lib/api';
+import type { CanvasDoc } from '../lib/api';
+import type { WritingMode } from '../types';
+import { MODE_META } from '../types';
+import InfiniteCanvas from '../components/InfiniteCanvas';
+import AsciiFish from '../components/AsciiFish';
 
-const MODE_ICON: Record<WritingMode, any> = {
-  screenplay: Clapperboard,
-  poem: Feather,
-  song: Music,
-  prose: BookOpen,
-};
+interface Props {
+  onOpen: (id: string) => void;
+}
 
-export default function Library() {
-  const [, navigate] = useLocation();
-  const [docs, setDocs] = useState<Document[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState<WritingMode | null>(null);
-  const [showNew, setShowNew] = useState(false);
+export default function Library({ onOpen }: Props) {
+  const [docs, setDocs] = useState<CanvasDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQ, setSearchQ] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
-  async function load() {
+  const loadDocs = useCallback(async () => {
     try {
-      setDocs(await api.list());
-    } catch (e: any) {
-      setError(e.message);
+      const state = await api.getCanvasState();
+      setDocs(state.documents);
+    } catch (err) {
+      console.error('Failed to load canvas state', err);
+    } finally {
+      setLoading(false);
     }
-  }
-  useEffect(() => {
-    load();
   }, []);
 
-  async function create(mode: WritingMode) {
-    setCreating(mode);
-    try {
-      const doc = await api.create({
-        mode,
-        title: "Untitled",
-        content:
-          mode === "screenplay"
-            ? [{ id: crypto.randomUUID(), type: "scene", text: "" }]
-            : [{ id: crypto.randomUUID(), text: "" }],
-      });
-      navigate(`/doc/${doc.id}`);
-    } catch (e: any) {
-      setError(e.message);
-      setCreating(null);
-    }
-  }
+  useEffect(() => {
+    loadDocs();
+  }, [loadDocs]);
 
-  async function remove(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    const prev = docs;
-    setDocs((d) => d?.filter((x) => x.id !== id) ?? null);
-    try {
-      await api.remove(id);
-    } catch {
-      setDocs(prev ?? null);
-    }
-  }
+  // Global keyboard shortcut for search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(s => !s);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
-  const scrollToWork = () =>
-    document.getElementById("work")?.scrollIntoView({ behavior: "smooth" });
+  const handleCreate = useCallback(async (mode: WritingMode, x: number, y: number) => {
+    try {
+      const doc = await api.createDocument({ title: 'Untitled', mode, canvas_x: x, canvas_y: y });
+      setDocs(prev => [...prev, {
+        id: doc.id, title: doc.title, mode: doc.mode,
+        x: doc.canvas_x, y: doc.canvas_y,
+        word_count: 0, page_count: 0, updated_at: doc.updated_at,
+      }]);
+      onOpen(doc.id);
+    } catch (err) {
+      console.error('Failed to create document', err);
+    }
+  }, [onOpen]);
+
+  const handleMove = useCallback(async (id: string, x: number, y: number) => {
+    setDocs(prev => prev.map(d => d.id === id ? { ...d, x, y } : d));
+    // Debounce persist
+    clearTimeout((window as any).__moveDebounce);
+    (window as any).__moveDebounce = setTimeout(() => {
+      api.updateCanvasPositions([{ id, x, y }]).catch(console.error);
+    }, 600);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm('Delete this document?')) return;
+    await api.deleteDocument(id);
+    setDocs(prev => prev.filter(d => d.id !== id));
+  }, []);
 
   return (
-    <div className="pulp-bg min-h-screen">
-      {/* Top nav */}
-      <header className="absolute left-0 right-0 top-0 z-20">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-5 sm:px-10">
-          <Wordmark size={26} />
+    <div className="w-screen h-screen flex flex-col" style={{ background: '#0d0d0d' }}>
+      {/* Header */}
+      <header
+        className="flex items-center gap-4 px-6"
+        style={{
+          height: 48,
+          background: '#1a0800',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0,
+          zIndex: 30,
+          position: 'relative',
+        }}
+      >
+        <div
+          className="font-bold tracking-wider text-lg"
+          style={{ color: '#f5b942', fontFamily: 'Inter, system-ui', letterSpacing: '0.2em' }}
+        >
+          PULP
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Search */}
+        <button
+          className="flex items-center gap-2 px-3 py-1.5 rounded text-sm"
+          style={{
+            background: 'rgba(245,185,66,0.08)',
+            border: '1px solid rgba(245,185,66,0.15)',
+            color: 'rgba(240,236,224,0.5)',
+            fontFamily: 'Inter, system-ui',
+          }}
+          onClick={() => setShowSearch(true)}
+        >
+          <span>⌕</span>
+          <span>Search</span>
+          <span className="text-xs opacity-50">⌘K</span>
+        </button>
+
+        {/* New doc button */}
+        <div className="relative">
           <button
-            onClick={scrollToWork}
-            className="mono-label btn-press text-[11px] text-pulp-gold/70 hover:text-pulp-gold"
-            data-testid="nav-work"
+            className="flex items-center gap-2 px-4 py-1.5 rounded text-sm font-medium transition-all btn-press"
+            style={{
+              background: '#f5b942',
+              color: '#0d0d0d',
+              fontFamily: 'Inter, system-ui',
+            }}
+            onClick={() => {
+              (window as any).__pendingCanvasCreate = { x: 100 + Math.random() * 400, y: 100 + Math.random() * 200 };
+              const modes: WritingMode[] = ['screenplay','prose','poem','song','notes'];
+              const mode = modes[0];
+              handleCreate(mode, (window as any).__pendingCanvasCreate.x, (window as any).__pendingCanvasCreate.y);
+            }}
           >
-            Your Work ↓
+            + New
           </button>
         </div>
       </header>
 
-      {/* ===== HERO (pulp.to manifesto) ===== */}
-      <section className="relative flex min-h-screen items-center overflow-hidden px-6 sm:px-10">
-        <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-10 lg:grid-cols-2">
-          {/* Headline */}
-          <div className="fade-up">
-            <h1 className="pulp-headline text-[3.2rem] sm:text-[4.5rem] lg:text-[5rem]">
-              creative
-              <br />
-              infrastructure
-              <br />
-              for the world.
-            </h1>
+      {/* Canvas */}
+      <div className="flex-1 relative">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div style={{ color: 'rgba(245,185,66,0.4)', fontFamily: 'Inter', fontSize: 14 }}>Loading canvas...</div>
           </div>
-          {/* ASCII fish */}
-          <div className="hidden justify-center lg:flex">
-            <AsciiFish />
-          </div>
-        </div>
-
-        {/* bottom-left lab line */}
-        <div className="mono-label absolute bottom-8 left-6 text-[11px] text-pulp-gold/70 sm:left-10">
-          Pulp is a media + AI lab.
-        </div>
-        <button
-          onClick={scrollToWork}
-          className="btn-press absolute bottom-8 right-6 hidden items-center gap-2 text-pulp-gold/60 hover:text-pulp-gold sm:right-10 sm:flex"
-          data-testid="scroll-down"
-        >
-          <span className="mono-label text-[11px]">Start writing</span>
-          <ArrowDown className="h-4 w-4" />
-        </button>
-      </section>
-
-      {/* ===== Manifesto quote (Ideas are like fish) ===== */}
-      <section className="px-6 py-20 sm:px-10 sm:py-28">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="pulp-headline mb-10 text-[2.6rem] sm:text-[3.6rem]">
-            Ideas are like fish.
-          </h2>
-          <div className="space-y-6 font-serif text-lg leading-relaxed text-pulp-gold/90 sm:text-xl">
-            <p>
-              If you want to catch little fish, you can stay in the shallow water. But if you
-              want to catch the big fish, you've got to go deeper. Down deep, the fish are more
-              powerful and more pure.
-            </p>
-            <p>
-              An idea is a thought that holds more than you think it does when you receive it.
-              But in that first moment there is a spark — enough to get you started, because
-              whatever follows is a process of action and reaction.
-            </p>
-            <p>Stay true to yourself. Let your voice ring out, and don't let anybody fiddle with it.</p>
-            <p className="font-serif text-base italic text-pulp-gold/60">
-              — David Lynch, <span className="not-italic">Catching the Big Fish</span>
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== Your Work / Library ===== */}
-      <section id="work" className="border-t border-pulp-gold/15 px-6 pb-28 pt-16 sm:px-10">
-        <div className="mx-auto max-w-[1400px]">
-          <div className="mb-8 flex items-end justify-between">
-            <div>
-              <div className="mono-label mb-2 text-[11px] text-pulp-gold/60">Your Work</div>
-              <h3 className="pulp-headline text-[2rem] sm:text-[2.6rem]">Write something true.</h3>
-            </div>
-            <button
-              onClick={() => setShowNew((v) => !v)}
-              className="mono-label btn-press flex items-center gap-2 rounded-full border border-pulp-gold/40 bg-pulp-gold/10 px-5 py-2.5 text-[11px] font-semibold text-pulp-gold hover:bg-pulp-gold hover:text-pulp-red"
-              data-testid="button-new"
-            >
-              <Plus className="h-4 w-4" /> New
-            </button>
-          </div>
-
-          {/* Mode picker */}
-          {(showNew || (docs && docs.length === 0)) && (
-            <div className="fade-up mb-12 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {(Object.keys(MODE_META) as WritingMode[]).map((mode) => {
-                const Icon = MODE_ICON[mode];
-                const meta = MODE_META[mode];
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => create(mode)}
-                    disabled={creating !== null}
-                    className="group btn-press relative overflow-hidden rounded-2xl border border-pulp-gold/25 bg-pulp-red-deep/40 p-5 text-left transition hover:border-pulp-gold/60 hover:bg-pulp-red-deep/70 disabled:opacity-60"
-                    data-testid={`button-create-${mode}`}
-                  >
-                    <div className="mb-8 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-pulp-gold/25 text-pulp-gold">
-                      {creating === mode ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Icon className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className="font-serif text-lg text-pulp-gold">{meta.label}</div>
-                    <div className="mono-label mt-1.5 text-[10px] leading-relaxed text-pulp-gold/55">
-                      {meta.tagline}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-pulp-gold/30 bg-pulp-red-deep/50 p-4 text-sm text-pulp-gold">
-              {error}
-            </div>
-          )}
-
-          {!docs && !error && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[0, 1, 2].map((i) => (
+        ) : (
+          <>
+            {docs.length < 4 && <AsciiFish />}
+            <InfiniteCanvas
+              documents={docs}
+              onOpen={onOpen}
+              onCreate={handleCreate}
+              onMove={handleMove}
+              onDelete={handleDelete}
+            />
+            {docs.length === 0 && (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                style={{ zIndex: 5 }}
+              >
                 <div
-                  key={i}
-                  className="h-36 animate-pulse rounded-2xl border border-pulp-gold/15 bg-pulp-red-deep/30"
-                />
-              ))}
-            </div>
-          )}
+                  className="text-6xl font-bold tracking-widest mb-4"
+                  style={{ color: 'rgba(245,185,66,0.08)', fontFamily: 'Inter, system-ui' }}
+                >
+                  PULP
+                </div>
+                <div
+                  className="text-sm"
+                  style={{ color: 'rgba(245,185,66,0.25)', fontFamily: 'Playfair Display, serif', fontStyle: 'italic' }}
+                >
+                  Double-click the canvas to begin your first document
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
-          {docs && docs.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {docs.map((doc) => {
-                const Icon = MODE_ICON[doc.mode] ?? FileText;
-                const count = Array.isArray(doc.content) ? doc.content.length : 0;
-                return (
-                  <div
-                    key={doc.id}
-                    onClick={() => navigate(`/doc/${doc.id}`)}
-                    className="group fade-up btn-press relative cursor-pointer overflow-hidden rounded-2xl border border-pulp-gold/25 bg-pulp-red-deep/40 p-5 transition hover:border-pulp-gold/60 hover:bg-pulp-red-deep/70"
-                    data-testid={`card-doc-${doc.id}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-pulp-gold/25 text-pulp-gold">
-                        <Icon className="h-[18px] w-[18px]" />
-                      </div>
-                      <button
-                        onClick={(e) => remove(doc.id, e)}
-                        className="rounded-lg p-1.5 text-pulp-gold/40 opacity-0 transition hover:bg-pulp-gold/10 hover:text-pulp-gold group-hover:opacity-100"
-                        data-testid={`button-delete-${doc.id}`}
-                        aria-label="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <h4
-                      className="mt-4 truncate font-serif text-xl text-pulp-gold"
-                      data-testid={`text-title-${doc.id}`}
-                    >
-                      {doc.title || "Untitled"}
-                    </h4>
-                    <div className="mono-label mt-2 flex items-center gap-2 text-[10px] text-pulp-gold/55">
-                      <span>{doc.mode}</span>
-                      <span>·</span>
-                      <span>{count} block{count !== 1 ? "s" : ""}</span>
-                      <span>·</span>
-                      <span>{timeAgo(doc.updated_at)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* footer */}
-        <div className="mx-auto mt-24 max-w-[1400px] border-t border-pulp-gold/15 pt-8">
-          <div className="mono-label flex items-center justify-between text-[10px] text-pulp-gold/45">
-            <span>Pulp © {new Date().getFullYear()}</span>
-            <span>Free, forever.</span>
+      {/* Search modal */}
+      {showSearch && (
+        <div
+          className="fixed inset-0 flex items-start justify-center pt-24"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', zIndex: 50 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowSearch(false); }}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl overflow-hidden"
+            style={{
+              background: '#1a0800',
+              border: '1px solid rgba(245,185,66,0.2)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
+            }}
+          >
+            <input
+              autoFocus
+              className="w-full px-5 py-4 text-base bg-transparent outline-none"
+              style={{ color: '#f0ece0', fontFamily: 'Inter, system-ui', borderBottom: '1px solid rgba(245,185,66,0.1)' }}
+              placeholder="Search documents..."
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+            />
+            <SearchResults q={searchQ} onOpen={(id) => { onOpen(id); setShowSearch(false); }} />
           </div>
         </div>
-      </section>
+      )}
+    </div>
+  );
+}
+
+function SearchResults({ q, onOpen }: { q: string; onOpen: (id: string) => void }) {
+  const [results, setResults] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return; }
+    const t = setTimeout(() => {
+      api.search(q).then(setResults).catch(() => setResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  if (!results.length && q) {
+    return <div className="px-5 py-4 text-sm" style={{ color: 'rgba(240,236,224,0.3)', fontFamily: 'Inter' }}>No results</div>;
+  }
+
+  return (
+    <div>
+      {results.map(r => {
+        const meta = MODE_META[r.mode as WritingMode] || MODE_META.prose;
+        return (
+          <button
+            key={r.id}
+            className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/5 transition-colors"
+            onClick={() => onOpen(r.id)}
+          >
+            <span>{meta.emoji}</span>
+            <div>
+              <div style={{ color: '#f0ece0', fontFamily: 'Inter', fontSize: 13 }}>{r.title}</div>
+              <div style={{ color: 'rgba(240,236,224,0.35)', fontSize: 11 }}>{r.snippet?.slice(0, 80)}</div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

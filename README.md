@@ -1,62 +1,85 @@
-# Pulp
+# PULP — Infinite Writing Canvas
 
-**The canvas where every script begins.** A free, screenplay-first writing studio for scripts, poems, songs, and prose — everything the expensive tools charge for, open to everyone.
+> *"Ideas are like fish. If you want to catch the big fish, you've got to go deeper."*  
+> — David Lynch
 
-![Pulp](https://img.shields.io/badge/status-live-f5b942)
+Pulp is the next-gen free writing platform for screenwriters, poets, novelists, songwriters, and note-takers. It replaces Final Draft, Scrivener, Bear, and Notion — for free, forever.
 
 ## Features
 
-- **Screenplay engine** — Industry-standard formatting (Scene / Action / Character / Dialogue / Parenthetical / Transition) with a persistent formatting toolbar, `Tab` to cycle elements, `Enter` to continue intelligently, `⌥1–6` to set element type, smart auto-capitalization, and auto-detection of scene headings & transitions.
-- **Title Page** — Standard screenplay front matter (title, author, based-on, draft date, contact) on a dedicated, switchable page that exports with the script.
-- **Transition menu** — One-click insert of the common transitions (CUT TO:, DISSOLVE TO:, SMASH CUT TO:, and more).
-- **Four writing modes** — Screenplay, Poem, Song, and Prose, each with its own typographic soul.
-- **The page is a canvas** — A floating, cinematic dark-studio surface, not just a text box.
-- **Cloud autosave** — Every keystroke persists to Neon Postgres. Pick up anywhere.
-- **Focus mode** — `⌘.` strips the UI to just you and the page.
-- **Export** — Print/PDF, Fountain (`.fountain`), and plain text.
-- **Live stats** — Word count and accurate screenplay page estimates.
+- 🎬 **Screenplay** — WGA-standard formatting, Tab-cycle elements, Fountain export
+- 📖 **Prose** — Clean long-form writing, headings, rich formatting
+- 📜 **Poem** — Generous line-height, stanza breaks, centered layout
+- 🎵 **Song** — Verse/Chorus/Bridge structure, chord annotations
+- 📝 **Notes** — Markdown-first, [[WikiLinks]], backlinks
+- ∞ **Infinite Canvas** — Drag documents anywhere, pan and zoom freely
+- 🐟 **The Fish** — David Lynch's swimming fish ASCII mascot
+- 🎯 **Focus Mode** — Strip everything away. Just you and the page.
+- 📤 **Export** — PDF, Fountain, DOCX, TXT
 
-## Keyboard shortcuts
-
-| Action | Shortcut |
-| --- | --- |
-| Set element type | `⌘1`–`⌘6` |
-| Cycle element type | `Tab` / `Shift+Tab` |
-| New element | `Enter` |
-| Save now | `⌘S` |
-| Toggle focus mode | `⌘.` |
-
-## Stack
-
-- **Frontend** — Vite + React + TypeScript + Tailwind CSS
-- **Backend** — Vercel serverless functions (`/api`)
-- **Database** — Neon Postgres (`@neondatabase/serverless`)
-
-## Local development
+## Quick Start (Local)
 
 ```bash
+# 1. Install dependencies
 npm install
-# set DATABASE_URL in .env (Neon connection string)
-node devserver.mjs   # local API shim on :5050
-npm run dev          # Vite on :5000
+pip install -r requirements.txt
+
+# 2. Build frontend
+npm run build
+
+# 3. Run Pulp
+python main.py
+# → http://localhost:8000
 ```
 
-## Deploy
+## Dev Mode (hot reload)
 
-Deployed on Vercel. Set the `DATABASE_URL` environment variable to your Neon connection string. The `documents` table:
+```bash
+# Terminal 1
+uvicorn main:app --reload --port 8000
 
-```sql
-CREATE TABLE documents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL DEFAULT 'Untitled',
-  mode text NOT NULL DEFAULT 'screenplay',
-  content jsonb NOT NULL DEFAULT '[]'::jsonb,
-  synopsis text NOT NULL DEFAULT '',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+# Terminal 2  
+npm run dev
+# → http://localhost:5173
 ```
+
+## Deploy to Vercel + Neon
+
+1. Push this repo to GitHub
+2. Import project in Vercel
+3. Add env var: `DATABASE_URL=postgresql://...` (from Neon dashboard)
+4. Framework: Vite
+5. Build command: `npm run build`
+6. Output directory: `dist`
+7. Deploy ✓
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React + Vite + TypeScript + Tailwind |
+| Backend | **Python FastAPI** |
+| Database | SQLite (local) / Neon Postgres (prod) |
+| ORM | SQLAlchemy async |
+| Export | fpdf2 (PDF), python-docx (DOCX) |
+| Fonts | Courier Prime, Newsreader, Playfair Display, Inter |
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `⌘K` | Search |
+| `⌘.` | Toggle Focus Mode |
+| `⌘E` | Export menu |
+| `⌘S` | Force save |
+| `Tab` | Next screenplay element |
+| `Shift+Tab` | Previous screenplay element |
+| `Escape` | Close modals / exit focus |
+
+## Screenplay Elements (Tab cycle)
+
+`Scene Heading` → `Action` → `Character` → `Dialogue` → `Parenthetical` → `Transition`
 
 ---
 
-Built free, for writers.
+Built with ❤️ — Free. Forever. No paywall.

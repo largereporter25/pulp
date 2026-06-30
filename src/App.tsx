@@ -1,17 +1,28 @@
-import { Switch, Route, Router } from "wouter";
-import { useHashLocation } from "wouter/use-hash-location";
-import Library from "./pages/Library";
-import Editor from "./pages/Editor";
-import NotFound from "./pages/NotFound";
+import { useState } from 'react';
+import Library from './pages/Library';
+import Editor from './pages/Editor';
 
 export default function App() {
+  const [view, setView] = useState<'library' | 'editor'>('library');
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
+
+  const openDoc = (id: string) => {
+    setActiveDocId(id);
+    setView('editor');
+  };
+
+  const goBack = () => {
+    setView('library');
+    setActiveDocId(null);
+  };
+
   return (
-    <Router hook={useHashLocation}>
-      <Switch>
-        <Route path="/" component={Library} />
-        <Route path="/doc/:id" component={Editor} />
-        <Route component={NotFound} />
-      </Switch>
-    </Router>
+    <div className="w-screen h-screen overflow-hidden">
+      {view === 'library' ? (
+        <Library onOpen={openDoc} />
+      ) : activeDocId ? (
+        <Editor docId={activeDocId} onBack={goBack} />
+      ) : null}
+    </div>
   );
 }
