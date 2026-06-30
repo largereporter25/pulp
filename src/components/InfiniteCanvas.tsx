@@ -1,172 +1,183 @@
-import React, { useRef, useState, useCallback, useEffect } from "react";
-import { CanvasCard } from "../lib/api";
-
-const MODE_COLORS: Record<string, string> = {
-  screenplay: "#f5b942", prose: "#7eb8d4",
-  poem: "#c084fc", song: "#4ade80", notes: "#fb923c",
-};
-const MODE_ICONS: Record<string, string> = {
-  screenplay: "🎬", prose: "📖", poem: "📜", song: "🎵", notes: "📝",
-};
+import { useRef, useState, useCallback, useEffect } from 'react';
+import type { CanvasDoc } from '../lib/api';
+import { MODE_META } from '../types';
+import type { WritingMode } from '../types';
 
 interface Props {
-  cards: CanvasCard[];
+  documents: CanvasDoc[];
   onOpen: (id: string) => void;
-  onPositionChange: (id: string, x: number, y: number) => void;
+  onCreate: (mode: WritingMode, x: number, y: number) => void;
+  onMove: (id: string, x: number, y: number) => void;
+  onDelete: (id: string) => void;
 }
 
-export default function InfiniteCanvas({ cards, onOpen, onPositionChange }: Props) {
+const GRID_SIZE = 32;
+
+export default function InfiniteCanvas({ documents, onOpen, onCreate, onMove, onDelete }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [panning, setPanning] = useState(false);
-  const panStart = useRef({ mx: 0, my: 0, tx: 0, ty: 0 });
-  const [dragging, setDragging] = useState<string | null>(null);
-  const dragStart = useRef({ mx: 0, my: 0, cx: 0, cy: 0 });
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [showModeMenu, setShowModeMenu] = useState<{ x: number; y: number } | null>(null);
 
-  useEffect(() => {
-    const p: Record<string, { x: number; y: number }> = {};
-    cards.forEach(c => { p[c.id] = { x: c.x, y: c.y }; });
-    setPositions(p);
-  }, [cards]);
-
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
+  // Pan
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       e.preventDefault();
-      setPanning(true);
-      panStart.current = { mx: e.clientX, my: e.clientY, tx: transform.x, ty: transform.y };
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     }
-  }, [transform]);
+  }, [offset]);
 
-  const onMouseMove = useCallback((e: React.MouseEvent) => {
-    if (panning) {
-      const dx = e.clientX - panStart.current.mx;
-      const dy = e.clientY - panStart.current.my;
-      setTransform(t => ({ ...t, x: panStart.current.tx + dx, y: panStart.current.ty + dy }));
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      setOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     }
-    if (dragging) {
-      const dx = (e.clientX - dragStart.current.mx) / transform.scale;
-      const dy = (e.clientY - dragStart.current.my) / transform.scale;
-      setPositions(prev => ({
-        ...prev,
-        [dragging]: { x: dragStart.current.cx + dx, y: dragStart.current.cy + dy },
-      }));
+    if (dragId) {
+      const nx = (e.clientX - offset.x - dragOffset.x) / scale;
+      const ny = (e.clientY - offset.y - dragOffset.y) / scale;
+      onMove(dragId, nx, ny);
     }
-  }, [panning, dragging, transform.scale]);
+  }, [isPanning, panStart, dragId, offset, scale, dragOffset, onMove]);
 
-  const onMouseUp = useCallback(() => {
-    if (panning) setPanning(false);
-    if (dragging) {
-      const pos = positions[dragging];
-      if (pos) onPositionChange(dragging, pos.x, pos.y);
-      setDragging(null);
-    }
-  }, [panning, dragging, positions, onPositionChange]);
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+    setDragId(null);
+  }, []);
 
-  const onWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
+  // Zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
-      const delta = e.deltaY > 0 ? 0.92 : 1.08;
-      setTransform(t => ({ ...t, scale: Math.max(0.3, Math.min(2.5, t.scale * delta)) }));
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setScale(s => Math.min(2, Math.max(0.3, s * delta)));
     } else {
-      setTransform(t => ({ ...t, x: t.x - e.deltaX, y: t.y - e.deltaY }));
+      setOffset(o => ({ x: o.x - e.deltaX, y: o.y - e.deltaY }));
     }
   }, []);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [onWheel]);
+  // Double-click to create
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.doc-card')) return;
+    const rect = containerRef.current!.getBoundingClientRect();
+    const cx = (e.clientX - rect.left - offset.x) / scale;
+    const cy = (e.clientY - rect.top - offset.y) / scale;
+    setShowModeMenu({ x: e.clientX, y: e.clientY });
+    // Store canvas coords for creation
+    (window as any).__pendingCanvasCreate = { x: cx, y: cy };
+  }, [offset, scale]);
 
-  const startCardDrag = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); e.preventDefault();
-    const pos = positions[id] || { x: 0, y: 0 };
-    setDragging(id);
-    dragStart.current = { mx: e.clientX, my: e.clientY, cx: pos.x, cy: pos.y };
-  };
+  // Card drag start
+  const startDrag = useCallback((e: React.MouseEvent, id: string, cardX: number, cardY: number) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    const cx = cardX * scale + offset.x;
+    const cy = cardY * scale + offset.y;
+    setDragId(id);
+    setDragOffset({ x: e.clientX - cx, y: e.clientY - cy });
+  }, [scale, offset]);
+
+  // Minimap
+  const minimapDocs = documents.slice(0, 50);
+  const minX = Math.min(0, ...minimapDocs.map(d => d.x));
+  const maxX = Math.max(800, ...minimapDocs.map(d => d.x + 240));
+  const minY = Math.min(0, ...minimapDocs.map(d => d.y));
+  const maxY = Math.max(600, ...minimapDocs.map(d => d.y + 140));
+  const mmW = 120, mmH = 80;
+
+  const modes: WritingMode[] = ['screenplay', 'prose', 'poem', 'song', 'notes'];
 
   return (
     <div
       ref={containerRef}
-      style={{
-        width: "100%", height: "100%", overflow: "hidden",
-        position: "relative",
-        cursor: panning ? "grabbing" : "default",
-        background: "#0d0d0d",
-        backgroundImage: "radial-gradient(circle, rgba(245,185,66,0.16) 1px, transparent 1px)",
-        backgroundSize: "32px 32px",
-      }}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseUp}
+      className="w-full h-full overflow-hidden relative select-none"
+      style={{ background: '#0d0d0d', cursor: isPanning ? 'grabbing' : dragId ? 'grabbing' : 'default' }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      onDoubleClick={handleDoubleClick}
     >
-      <div style={{
-        position: "absolute", top: "30%", left: "50%",
-        transform: "translate(-50%,-50%)",
-        width: 900, height: 600, pointerEvents: "none",
-        background: "radial-gradient(ellipse at center, rgba(245,185,66,0.04) 0%, transparent 70%)",
-      }} />
-      <div style={{
-        position: "absolute",
-        transform: `translate(${transform.x}px,${transform.y}px) scale(${transform.scale})`,
-        transformOrigin: "0 0", willChange: "transform",
-      }}>
-        {cards.map(card => {
-          const pos = positions[card.id] || { x: 0, y: 0 };
-          const color = MODE_COLORS[card.mode] || "#f5b942";
-          const isDragging = dragging === card.id;
+      {/* Dot grid background */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(245,185,66,0.2) 1px, transparent 1px)',
+          backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
+          backgroundPosition: `${offset.x % (GRID_SIZE * scale)}px ${offset.y % (GRID_SIZE * scale)}px`,
+        }}
+      />
+
+      {/* Canvas transform layer */}
+      <div
+        className="absolute"
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: '0 0' }}
+      >
+        {documents.map(doc => {
+          const meta = MODE_META[doc.mode as WritingMode] || MODE_META.prose;
           return (
             <div
-              key={card.id}
+              key={doc.id}
+              className="doc-card absolute group"
               style={{
-                position: "absolute", left: pos.x, top: pos.y,
-                width: 220, background: "#111111",
-                border: `1px solid rgba(255,255,255,0.07)`,
-                borderLeft: `3px solid ${color}`,
-                borderRadius: 6, padding: "14px 16px",
-                cursor: isDragging ? "grabbing" : "grab",
-                boxShadow: isDragging
-                  ? `0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px ${color}40`
-                  : "0 4px 24px rgba(0,0,0,0.5)",
-                transform: isDragging ? "scale(1.03)" : "scale(1)",
-                transition: isDragging ? "none" : "box-shadow 0.15s, transform 0.15s",
-                zIndex: isDragging ? 1000 : 1,
-                userSelect: "none",
+                left: doc.x,
+                top: doc.y,
+                width: 240,
+                cursor: dragId === doc.id ? 'grabbing' : 'grab',
               }}
-              onMouseDown={e => startCardDrag(e, card.id)}
-              onDoubleClick={() => onOpen(card.id)}
+              onMouseDown={e => startDrag(e, doc.id, doc.x, doc.y)}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                <span style={{ fontSize: "1rem" }}>{MODE_ICONS[card.mode] || "📄"}</span>
-                <span style={{
-                  color: "#f0ece0", fontFamily: "Inter, sans-serif",
-                  fontSize: "0.82rem", fontWeight: 500,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 155,
-                }}>{card.title || "Untitled"}</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span style={{
-                  background: `${color}22`, color,
-                  fontSize: "0.62rem", padding: "2px 6px",
-                  borderRadius: 3, fontFamily: "Inter, sans-serif",
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                }}>{card.mode}</span>
-                {card.word_count > 0 && (
-                  <span style={{ color: "rgba(240,236,224,0.4)", fontSize: "0.62rem", fontFamily: "Inter, sans-serif" }}>
-                    {card.word_count.toLocaleString()}w
-                  </span>
-                )}
-              </div>
-              {card.updated_at && (
-                <div style={{ color: "rgba(240,236,224,0.22)", fontSize: "0.58rem", marginTop: 8, fontFamily: "Inter, sans-serif" }}>
-                  {new Date(card.updated_at).toLocaleDateString()}
+              <div
+                className="rounded-lg p-4 transition-all duration-150 group-hover:scale-105"
+                style={{
+                  background: '#111111',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderLeft: `3px solid ${meta.color}`,
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                }}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-lg">{meta.emoji}</span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      className="text-xs px-2 py-0.5 rounded"
+                      style={{ background: 'rgba(245,185,66,0.15)', color: '#f5b942' }}
+                      onClick={e => { e.stopPropagation(); onOpen(doc.id); }}
+                    >
+                      Open
+                    </button>
+                    <button
+                      className="text-xs px-2 py-0.5 rounded"
+                      style={{ background: 'rgba(255,50,50,0.15)', color: '#ff6464' }}
+                      onClick={e => { e.stopPropagation(); onDelete(doc.id); }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
-              )}
-              <div style={{ marginTop: 10, fontSize: "0.6rem", color: "rgba(245,185,66,0.4)", fontFamily: "Inter, sans-serif" }}>
-                double-click to open
+                <div
+                  className="font-semibold truncate mb-1"
+                  style={{ color: '#f0ece0', fontFamily: 'Inter, system-ui', fontSize: 13 }}
+                  onDoubleClick={e => { e.stopPropagation(); onOpen(doc.id); }}
+                >
+                  {doc.title || 'Untitled'}
+                </div>
+                <div className="flex gap-2 items-center" style={{ color: 'rgba(240,236,224,0.4)', fontSize: 11 }}>
+                  <span
+                    className="px-1.5 py-0.5 rounded text-xs"
+                    style={{ background: `${meta.color}22`, color: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
+                  <span>{doc.word_count} words</span>
+                </div>
+                <div style={{ color: 'rgba(240,236,224,0.25)', fontSize: 10, marginTop: 4 }}>
+                  {new Date(doc.updated_at).toLocaleDateString()}
+                </div>
               </div>
             </div>
           );
@@ -174,50 +185,125 @@ export default function InfiniteCanvas({ cards, onOpen, onPositionChange }: Prop
       </div>
 
       {/* Zoom controls */}
-      <div style={{
-        position: "absolute", bottom: 24, left: 24,
-        display: "flex", gap: 6, alignItems: "center",
-        background: "rgba(26,8,0,0.85)",
-        border: "1px solid rgba(245,185,66,0.2)",
-        borderRadius: 8, padding: "4px 12px",
-        backdropFilter: "blur(8px)",
-      }}>
-        <button onClick={() => setTransform(t => ({ ...t, scale: Math.max(0.3, t.scale - 0.1) }))}
-          style={{ background: "none", border: "none", color: "#f5b942", cursor: "pointer", fontSize: "1rem" }}>−</button>
-        <span style={{ color: "rgba(240,236,224,0.5)", fontFamily: "Inter", fontSize: "0.7rem", minWidth: 36, textAlign: "center" }}>
-          {Math.round(transform.scale * 100)}%
-        </span>
-        <button onClick={() => setTransform(t => ({ ...t, scale: Math.min(2.5, t.scale + 0.1) }))}
-          style={{ background: "none", border: "none", color: "#f5b942", cursor: "pointer", fontSize: "1rem" }}>+</button>
-        <button onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
-          style={{ background: "none", border: "none", color: "rgba(245,185,66,0.4)", cursor: "pointer", fontSize: "0.62rem", marginLeft: 4, fontFamily: "Inter" }}>reset</button>
+      <div
+        className="absolute bottom-4 left-4 flex gap-2 items-center"
+        style={{ zIndex: 10 }}
+      >
+        {[['−', 0.9], ['100%', 1], ['+', 1.1]].map(([label, factor]) => (
+          <button
+            key={String(label)}
+            className="px-2 py-1 rounded text-xs font-mono transition-all"
+            style={{
+              background: '#1a0800',
+              border: '1px solid rgba(245,185,66,0.2)',
+              color: '#f5b942',
+            }}
+            onClick={() =>
+              label === '100%'
+                ? setScale(1)
+                : setScale(s => Math.min(2, Math.max(0.3, s * (factor as number))))
+            }
+          >
+            {label === '100%' ? `${Math.round(scale * 100)}%` : label}
+          </button>
+        ))}
+        <button
+          className="px-2 py-1 rounded text-xs"
+          style={{ background: '#1a0800', border: '1px solid rgba(245,185,66,0.2)', color: 'rgba(245,185,66,0.5)' }}
+          onClick={() => { setOffset({ x: 0, y: 0 }); setScale(1); }}
+        >
+          Reset
+        </button>
       </div>
 
       {/* Minimap */}
-      <div style={{
-        position: "absolute", bottom: 24, right: 24,
-        width: 130, height: 90, background: "rgba(13,13,13,0.85)",
-        border: "1px solid rgba(245,185,66,0.12)",
-        borderRadius: 8, overflow: "hidden", backdropFilter: "blur(8px)",
-      }}>
-        {cards.map(card => {
-          const pos = positions[card.id] || { x: 0, y: 0 };
-          return (
-            <div key={card.id} style={{
-              position: "absolute",
-              left: Math.max(2, Math.min(122, (pos.x / 2000) * 130)),
-              top: Math.max(2, Math.min(82, (pos.y / 1500) * 90)),
-              width: 8, height: 6,
-              background: MODE_COLORS[card.mode] || "#f5b942",
-              borderRadius: 1, opacity: 0.65,
-            }} />
-          );
-        })}
-        <div style={{
-          position: "absolute", bottom: 3, left: 0, right: 0,
-          textAlign: "center", color: "rgba(245,185,66,0.25)",
-          fontFamily: "Inter", fontSize: "0.52rem",
-        }}>minimap</div>
+      {documents.length > 0 && (
+        <div
+          className="absolute bottom-4 right-4"
+          style={{
+            width: mmW,
+            height: mmH,
+            background: 'rgba(17,17,17,0.85)',
+            border: '1px solid rgba(245,185,66,0.15)',
+            borderRadius: 6,
+            zIndex: 10,
+            overflow: 'hidden',
+          }}
+        >
+          {minimapDocs.map(doc => {
+            const meta = MODE_META[doc.mode as WritingMode] || MODE_META.prose;
+            const mx = ((doc.x - minX) / (maxX - minX)) * mmW;
+            const my = ((doc.y - minY) / (maxY - minY)) * mmH;
+            return (
+              <div
+                key={doc.id}
+                className="absolute"
+                style={{
+                  left: mx,
+                  top: my,
+                  width: 8,
+                  height: 5,
+                  background: meta.color,
+                  borderRadius: 1,
+                  opacity: 0.7,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Mode picker popover */}
+      {showModeMenu && (
+        <>
+          <div
+            className="fixed inset-0"
+            style={{ zIndex: 19 }}
+            onClick={() => setShowModeMenu(null)}
+          />
+          <div
+            className="fixed rounded-xl overflow-hidden"
+            style={{
+              left: showModeMenu.x,
+              top: showModeMenu.y,
+              background: '#1a0800',
+              border: '1px solid rgba(245,185,66,0.2)',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.7)',
+              zIndex: 20,
+              minWidth: 200,
+            }}
+          >
+            <div className="px-3 py-2" style={{ color: 'rgba(240,236,224,0.4)', fontSize: 11 }}>New document</div>
+            {(['screenplay','prose','poem','song','notes'] as WritingMode[]).map(mode => {
+              const m = MODE_META[mode];
+              return (
+                <button
+                  key={mode}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                  style={{ color: '#f0ece0', fontFamily: 'Inter, system-ui', fontSize: 13 }}
+                  onClick={() => {
+                    const p = (window as any).__pendingCanvasCreate || { x: 100, y: 100 };
+                    onCreate(mode, p.x, p.y);
+                    setShowModeMenu(null);
+                  }}
+                >
+                  <span>{m.emoji}</span>
+                  <span>{m.label}</span>
+                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded" style={{ background: `${m.color}22`, color: m.color }}>
+                    {mode}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div
+        className="absolute bottom-16 left-1/2 -translate-x-1/2 text-center pointer-events-none"
+        style={{ color: 'rgba(245,185,66,0.18)', fontSize: 12, fontFamily: 'Inter, system-ui', zIndex: 1 }}
+      >
+        Double-click anywhere to create · Alt+drag to pan · Ctrl+scroll to zoom
       </div>
     </div>
   );

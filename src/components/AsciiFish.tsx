@@ -1,77 +1,83 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
+import { LYNCH_QUOTES } from '../types';
 
-const QUOTES = [
-  "Ideas are like fish. If you want to catch the big fish, you've got to go deeper.",
-  "The thing about meditation is: you become more and more you.",
-  "Negativity is the enemy of creativity.",
-  "Desires are memories from our future.",
-  "I don't think that people accept the fact that life doesn't make sense. I find that people who get stuck in their lives very often have this problem.",
+const FISH_FRAMES = [
+  `><(((°>`,
+  `><(((°> `,
+  ` ><(((°>`,
 ];
 
-const FRAMES = ["  ><(((º>  ", "  ><(((°>  ", "  ><(((o>  ", "  ><(((°>  "];
-
 export default function AsciiFish() {
-  const [x, setX] = useState(-120);
+  const [x, setX] = useState(-200);
   const [y, setY] = useState(50);
-  const [frame, setFrame] = useState(0);
   const [hovered, setHovered] = useState(false);
-  const [quoteIdx] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [quote, setQuote] = useState('');
+  const [frame, setFrame] = useState(0);
   const animRef = useRef<number | null>(null);
-  const startTime = useRef(Date.now());
-  const frameCount = useRef(0);
+  const startRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const animate = () => {
-      if (!hovered) {
-        const elapsed = (Date.now() - startTime.current) / 1000;
-        const vw = window.innerWidth;
-        const progress = (elapsed % 60) / 60;
-        setX(-150 + progress * (vw + 300));
-        setY(40 + Math.sin(elapsed * 0.4) * 18);
-        frameCount.current++;
-        if (frameCount.current % 20 === 0) setFrame(f => (f + 1) % FRAMES.length);
-      }
+    const randomQuote = LYNCH_QUOTES[Math.floor(Math.random() * LYNCH_QUOTES.length)];
+    setQuote(randomQuote);
+  }, []);
+
+  useEffect(() => {
+    if (hovered) {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      return;
+    }
+
+    const DURATION = 60000; // 60s per pass
+    const BASE_Y = window.innerHeight * 0.5;
+    const AMPLITUDE = 80;
+
+    const animate = (timestamp: number) => {
+      if (!startRef.current) startRef.current = timestamp;
+      const elapsed = (timestamp - startRef.current) % DURATION;
+      const progress = elapsed / DURATION; // 0..1
+      const newX = -220 + progress * (window.innerWidth + 440);
+      const newY = BASE_Y + Math.sin(progress * Math.PI * 6) * AMPLITUDE;
+      setX(newX);
+      setY(newY);
+      setFrame(Math.floor(timestamp / 400) % FISH_FRAMES.length);
       animRef.current = requestAnimationFrame(animate);
     };
+
     animRef.current = requestAnimationFrame(animate);
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
   }, [hovered]);
 
   return (
     <div
-      style={{ position: "absolute", left: x, top: `${y}%`, willChange: "transform", zIndex: 0, pointerEvents: "auto" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="fixed pointer-events-none"
+      style={{ left: x, top: y, zIndex: 0 }}
     >
-      <span style={{
-        fontFamily: "'Courier Prime', monospace",
-        fontSize: "1.5rem", color: "#f5b942",
-        opacity: hovered ? 1 : 0.5,
-        transition: "opacity 0.3s", cursor: "pointer", display: "block",
-        userSelect: "none",
-      }}>
-        {hovered ? "  ><(((●>  " : FRAMES[frame]}
-      </span>
-      {hovered && (
-        <div style={{
-          position: "absolute", top: "2.2rem", left: "50%",
-          transform: "translateX(-50%)",
-          background: "rgba(26,8,0,0.97)",
-          border: "1px solid rgba(245,185,66,0.35)",
-          borderRadius: 8, padding: "12px 18px", maxWidth: 300,
-          whiteSpace: "normal", color: "#f5b942",
-          fontFamily: "'Playfair Display', serif",
-          fontStyle: "italic", fontSize: "0.88rem", lineHeight: 1.6,
-          zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
-          animation: "scaleIn 0.15s ease-out",
-        }}>
-          "{QUOTES[quoteIdx]}"
-          <div style={{
-            color: "rgba(245,185,66,0.5)", fontSize: "0.7rem",
-            marginTop: 6, fontStyle: "normal", fontFamily: "Inter, sans-serif",
-          }}>— David Lynch</div>
-        </div>
-      )}
+      <div
+        className="pointer-events-auto cursor-pointer"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <span
+          className="font-mono text-2xl select-none transition-all duration-300"
+          style={{
+            color: hovered ? '#f5b942' : 'rgba(245,185,66,0.3)',
+            textShadow: hovered ? '0 0 20px rgba(245,185,66,0.6)' : 'none',
+            filter: hovered ? 'brightness(1.3)' : 'none',
+          }}
+        >
+          {FISH_FRAMES[frame]}
+        </span>
+        {hovered && (
+          <div
+            className="absolute left-10 -top-8 whitespace-nowrap text-sm italic"
+            style={{ color: '#f5b942', fontFamily: 'Playfair Display, Georgia, serif', maxWidth: 360, whiteSpace: 'normal' }}
+          >
+            &ldquo;{quote}&rdquo;
+          </div>
+        )}
+      </div>
     </div>
   );
 }

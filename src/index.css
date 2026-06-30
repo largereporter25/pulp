@@ -1,43 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&family=Newsreader:ital,wght@0,400;0,500;1,400;1,500&family=Playfair+Display:ital,wght@0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,700;1,400;1,700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&display=swap');
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --pulp-canvas-bg: #0d0d0d;
   --pulp-page-bg: #111111;
   --pulp-red-dark: #1a0800;
+  --pulp-red-deep: #2d0e00;
   --pulp-gold: #f5b942;
   --pulp-gold-dim: rgba(245,185,66,0.45);
   --pulp-ink: #f0ece0;
+  --pulp-muted: rgba(240,236,224,0.45);
   --pulp-border: rgba(255,255,255,0.06);
 }
 
-html, body, #root {
-  width: 100%; height: 100%; overflow: hidden;
-  background: var(--pulp-canvas-bg);
-  color: var(--pulp-ink);
+* {
+  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--pulp-canvas-bg);
+}
+
+/* Focus placeholder for editor */
+.pulp-editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(240, 236, 224, 0.18);
+  pointer-events: none;
+  white-space: pre-wrap;
+  font-style: italic;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(245,185,66,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(245,185,66,0.2); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(245,185,66,0.4); }
 
+/* Button press */
+.btn-press { transition: transform 100ms ease; }
+.btn-press:active { transform: scale(0.95); }
+
+/* Scale in animation */
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.scale-in { animation: scaleIn 150ms ease-out; }
+
+/* Canvas card hover glow */
+.doc-card:hover .card-inner {
+  box-shadow: 0 0 0 1px rgba(245,185,66,0.1), 0 8px 32px rgba(0,0,0,0.6);
 }
 
-@keyframes fadeInOut {
-  0%   { opacity: 0; transform: translateY(-4px); }
-  15%  { opacity: 1; transform: translateY(0); }
-  75%  { opacity: 1; }
-  100% { opacity: 0; }
-}
+/* Screenplay element type indicator */
+.pulp-editor[data-element='scene_heading'] { border-left: 2px solid rgba(245,185,66,0.4); }
+.pulp-editor[data-element='character'] { border-left: 2px solid rgba(126,184,212,0.4); }
+.pulp-editor[data-element='dialogue'] { border-left: 2px solid rgba(192,132,252,0.4); }
+.pulp-editor[data-element='transition'] { border-left: 2px solid rgba(74,222,128,0.4); }
 
-button { font-family: inherit; }
-*:focus-visible { outline: 2px solid rgba(245,185,66,0.5); outline-offset: 2px; }
-textarea:focus { outline: none; }
-textarea::placeholder { color: rgba(240,236,224,0.2); }
-::selection { background: rgba(245,185,66,0.2); color: #f0ece0; }
+/* Poem line height */
+.pulp-poem-line { line-height: 2.2; }
+
+/* Song chord annotation */
+.pulp-chord {
+  color: var(--pulp-gold);
+  font-size: 0.75em;
+  vertical-align: super;
+  font-family: 'JetBrains Mono', monospace;
+}

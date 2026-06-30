@@ -1,63 +1,85 @@
-# Pulp ✦
+# PULP — Infinite Writing Canvas
 
-> *Ideas are like fish. If you want to catch the big fish, you've got to go deeper.* — David Lynch
+> *"Ideas are like fish. If you want to catch the big fish, you've got to go deeper."*  
+> — David Lynch
 
-**Pulp** is a next-generation, free, infinite-canvas writing tool for screenwriters, novelists, poets, songwriters, and note-takers. Replaces Final Draft, Scrivener, Bear, and Notion — at zero cost.
-
----
+Pulp is the next-gen free writing platform for screenwriters, poets, novelists, songwriters, and note-takers. It replaces Final Draft, Scrivener, Bear, and Notion — for free, forever.
 
 ## Features
 
-- 🎬 **Screenplay** — WGA-standard formatting
-- 📖 **Prose** — Long-form essays, journalism, fiction
-- 📜 **Poem** — Lyrical layout with breathing room
-- 🎵 **Song** — Verse/chorus/bridge structure
-- 📝 **Notes** — Markdown-first with `[[WikiLinks]]`
-- 🌊 **Infinite Canvas** — Drag, zoom, pan freely
-- 🐟 **The Fish** — Hover for a David Lynch quote
-- 📤 **Export** — PDF, Fountain, Word (.docx), TXT
-- 🔄 **Autosave** — Every keystroke saved automatically
-- 🌑 **Focus Mode** — `Cmd+.` hides all chrome
+- 🎬 **Screenplay** — WGA-standard formatting, Tab-cycle elements, Fountain export
+- 📖 **Prose** — Clean long-form writing, headings, rich formatting
+- 📜 **Poem** — Generous line-height, stanza breaks, centered layout
+- 🎵 **Song** — Verse/Chorus/Bridge structure, chord annotations
+- 📝 **Notes** — Markdown-first, [[WikiLinks]], backlinks
+- ∞ **Infinite Canvas** — Drag documents anywhere, pan and zoom freely
+- 🐟 **The Fish** — David Lynch's swimming fish ASCII mascot
+- 🎯 **Focus Mode** — Strip everything away. Just you and the page.
+- 📤 **Export** — PDF, Fountain, DOCX, TXT
 
----
-
-## Run Locally (Python)
+## Quick Start (Local)
 
 ```bash
-npm install && pip install -r requirements.txt
+# 1. Install dependencies
+npm install
+pip install -r requirements.txt
+
+# 2. Build frontend
 npm run build
+
+# 3. Run Pulp
 python main.py
 # → http://localhost:8000
 ```
 
-## Dev Mode
+## Dev Mode (hot reload)
 
 ```bash
 # Terminal 1
-npm run dev
-# Terminal 2
-DEV=true python main.py
-```
+uvicorn main:app --reload --port 8000
 
----
+# Terminal 2  
+npm run dev
+# → http://localhost:5173
+```
 
 ## Deploy to Vercel + Neon
 
-1. Push repo to GitHub
-2. Connect to [vercel.com](https://vercel.com)
-3. Add env var: `DATABASE_URL=postgresql+asyncpg://...` (from Neon dashboard)
-4. Deploy
+1. Push this repo to GitHub
+2. Import project in Vercel
+3. Add env var: `DATABASE_URL=postgresql://...` (from Neon dashboard)
+4. Framework: Vite
+5. Build command: `npm run build`
+6. Output directory: `dist`
+7. Deploy ✓
 
----
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React + Vite + TypeScript + Tailwind |
+| Backend | **Python FastAPI** |
+| Database | SQLite (local) / Neon Postgres (prod) |
+| ORM | SQLAlchemy async |
+| Export | fpdf2 (PDF), python-docx (DOCX) |
+| Fonts | Courier Prime, Newsreader, Playfair Display, Inter |
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
-|---|---|
-| `Cmd+.` | Toggle Focus Mode |
-| `Cmd+E` | Export menu |
-| `Escape` | Close popover |
+|----------|--------|
+| `⌘K` | Search |
+| `⌘.` | Toggle Focus Mode |
+| `⌘E` | Export menu |
+| `⌘S` | Force save |
+| `Tab` | Next screenplay element |
+| `Shift+Tab` | Previous screenplay element |
+| `Escape` | Close modals / exit focus |
+
+## Screenplay Elements (Tab cycle)
+
+`Scene Heading` → `Action` → `Character` → `Dialogue` → `Parenthetical` → `Transition`
 
 ---
 
-*Pulp. The canvas never ends.*
+Built with ❤️ — Free. Forever. No paywall.

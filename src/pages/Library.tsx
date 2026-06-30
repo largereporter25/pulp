@@ -1,193 +1,240 @@
-import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "wouter";
-import { api, CanvasCard } from "../lib/api";
-import InfiniteCanvas from "../components/InfiniteCanvas";
-import AsciiFish from "../components/AsciiFish";
+import { useEffect, useState, useCallback } from 'react';
+import { api } from '../lib/api';
+import type { CanvasDoc } from '../lib/api';
+import type { WritingMode } from '../types';
+import { MODE_META } from '../types';
+import InfiniteCanvas from '../components/InfiniteCanvas';
+import AsciiFish from '../components/AsciiFish';
 
-const MODES = [
-  { id: "screenplay", label: "Screenplay", icon: "🎬" },
-  { id: "prose", label: "Prose", icon: "📖" },
-  { id: "poem", label: "Poem", icon: "📜" },
-  { id: "song", label: "Song", icon: "🎵" },
-  { id: "notes", label: "Notes", icon: "📝" },
-];
+interface Props {
+  onOpen: (id: string) => void;
+}
 
-export default function Library() {
-  const [, navigate] = useNavigate();
-  const [cards, setCards] = useState<CanvasCard[]>([]);
+export default function Library({ onOpen }: Props) {
+  const [docs, setDocs] = useState<CanvasDoc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNewMenu, setShowNewMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQ, setSearchQ] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  const loadCanvas = useCallback(async () => {
+  const loadDocs = useCallback(async () => {
     try {
       const state = await api.getCanvasState();
-      setCards(state.documents);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      setDocs(state.documents);
+    } catch (err) {
+      console.error('Failed to load canvas state', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { loadCanvas(); }, [loadCanvas]);
+  useEffect(() => {
+    loadDocs();
+  }, [loadDocs]);
 
-  const createDoc = async (mode: string) => {
-    setShowNewMenu(false);
-    const idx = cards.length;
-    const doc = await api.createDocument({
-      title: "Untitled", mode: mode as any,
-      canvas_x: 120 + (idx % 4) * 280,
-      canvas_y: 120 + Math.floor(idx / 4) * 220,
-    });
-    navigate(`/doc/${doc.id}`);
-  };
-
-  const handlePositionChange = useCallback(async (id: string, x: number, y: number) => {
-    setCards(prev => prev.map(c => c.id === id ? { ...c, x, y } : c));
-    await api.updateCanvasPositions([{ id, x, y }]);
+  // Global keyboard shortcut for search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(s => !s);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) { loadCanvas(); return; }
-    const results = await api.search(searchQuery);
-    setCards(results.map(d => ({
-      id: d.id, title: d.title, mode: d.mode,
-      x: d.canvas_x, y: d.canvas_y,
-      word_count: d.word_count, page_count: d.page_count,
-      tags: d.tags, updated_at: d.updated_at,
-    })));
-  };
+  const handleCreate = useCallback(async (mode: WritingMode, x: number, y: number) => {
+    try {
+      const doc = await api.createDocument({ title: 'Untitled', mode, canvas_x: x, canvas_y: y });
+      setDocs(prev => [...prev, {
+        id: doc.id, title: doc.title, mode: doc.mode,
+        x: doc.canvas_x, y: doc.canvas_y,
+        word_count: 0, page_count: 0, updated_at: doc.updated_at,
+      }]);
+      onOpen(doc.id);
+    } catch (err) {
+      console.error('Failed to create document', err);
+    }
+  }, [onOpen]);
+
+  const handleMove = useCallback(async (id: string, x: number, y: number) => {
+    setDocs(prev => prev.map(d => d.id === id ? { ...d, x, y } : d));
+    // Debounce persist
+    clearTimeout((window as any).__moveDebounce);
+    (window as any).__moveDebounce = setTimeout(() => {
+      api.updateCanvasPositions([{ id, x, y }]).catch(console.error);
+    }, 600);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm('Delete this document?')) return;
+    await api.deleteDocument(id);
+    setDocs(prev => prev.filter(d => d.id !== id));
+  }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", background: "#0d0d0d" }}>
-      <header style={{
-        height: 48, display: "flex", alignItems: "center",
-        justifyContent: "space-between", padding: "0 20px",
-        background: "#1a0800",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        flexShrink: 0, zIndex: 100, position: "relative",
-      }}>
-        <div style={{
-          fontFamily: "'Playfair Display', serif",
-          fontStyle: "italic", fontWeight: 700,
-          fontSize: "1.3rem", color: "#f5b942",
-          letterSpacing: "0.03em", userSelect: "none",
-        }}>Pulp</div>
+    <div className="w-screen h-screen flex flex-col" style={{ background: '#0d0d0d' }}>
+      {/* Header */}
+      <header
+        className="flex items-center gap-4 px-6"
+        style={{
+          height: 48,
+          background: '#1a0800',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0,
+          zIndex: 30,
+          position: 'relative',
+        }}
+      >
+        <div
+          className="font-bold tracking-wider text-lg"
+          style={{ color: '#f5b942', fontFamily: 'Inter, system-ui', letterSpacing: '0.2em' }}
+        >
+          PULP
+        </div>
 
-        {showSearch ? (
-          <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 400, margin: "0 24px" }}>
-            <input
-              autoFocus
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onBlur={() => { if (!searchQuery) setShowSearch(false); }}
-              placeholder="Search your writing..."
-              style={{
-                width: "100%", background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(245,185,66,0.3)",
-                borderRadius: 6, padding: "6px 12px",
-                color: "#f0ece0", fontFamily: "Inter, sans-serif", fontSize: "0.82rem",
-                outline: "none",
-              }}
-            />
-          </form>
-        ) : (
+        <div className="flex-1" />
+
+        {/* Search */}
+        <button
+          className="flex items-center gap-2 px-3 py-1.5 rounded text-sm"
+          style={{
+            background: 'rgba(245,185,66,0.08)',
+            border: '1px solid rgba(245,185,66,0.15)',
+            color: 'rgba(240,236,224,0.5)',
+            fontFamily: 'Inter, system-ui',
+          }}
+          onClick={() => setShowSearch(true)}
+        >
+          <span>⌕</span>
+          <span>Search</span>
+          <span className="text-xs opacity-50">⌘K</span>
+        </button>
+
+        {/* New doc button */}
+        <div className="relative">
           <button
-            onClick={() => setShowSearch(true)}
+            className="flex items-center gap-2 px-4 py-1.5 rounded text-sm font-medium transition-all btn-press"
             style={{
-              flex: 1, maxWidth: 400, margin: "0 24px",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 6, padding: "6px 14px",
-              color: "rgba(240,236,224,0.3)",
-              fontFamily: "Inter, sans-serif", fontSize: "0.82rem",
-              cursor: "text", textAlign: "left",
-            }}>⌘K  Search...</button>
-        )}
-
-        <div style={{ display: "flex", gap: 10, alignItems: "center", position: "relative" }}>
-          <button
-            onClick={() => setShowNewMenu(m => !m)}
-            style={{
-              background: "#f5b942", color: "#1a0800",
-              border: "none", borderRadius: 6,
-              padding: "6px 16px", fontFamily: "Inter, sans-serif",
-              fontWeight: 600, fontSize: "0.82rem", cursor: "pointer",
-            }}>+ New</button>
-
-          {showNewMenu && (
-            <div style={{
-              position: "absolute", top: "calc(100% + 8px)", right: 0,
-              background: "#1a0800",
-              border: "1px solid rgba(245,185,66,0.2)",
-              borderRadius: 10, overflow: "hidden",
-              boxShadow: "0 16px 40px rgba(0,0,0,0.6)",
-              minWidth: 180, zIndex: 200,
-              animation: "scaleIn 0.15s ease-out",
-            }}>
-              {MODES.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => createDoc(m.id)}
-                  style={{
-                    display: "block", width: "100%",
-                    background: "none", border: "none",
-                    textAlign: "left", padding: "10px 16px",
-                    color: "#f0ece0", fontFamily: "Inter, sans-serif",
-                    fontSize: "0.85rem", cursor: "pointer",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)",
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,185,66,0.08)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "none")}
-                >
-                  {m.icon}  {m.label}
-                </button>
-              ))}
-            </div>
-          )}
+              background: '#f5b942',
+              color: '#0d0d0d',
+              fontFamily: 'Inter, system-ui',
+            }}
+            onClick={() => {
+              (window as any).__pendingCanvasCreate = { x: 100 + Math.random() * 400, y: 100 + Math.random() * 200 };
+              const modes: WritingMode[] = ['screenplay','prose','poem','song','notes'];
+              const mode = modes[0];
+              handleCreate(mode, (window as any).__pendingCanvasCreate.x, (window as any).__pendingCanvasCreate.y);
+            }}
+          >
+            + New
+          </button>
         </div>
       </header>
 
-      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+      {/* Canvas */}
+      <div className="flex-1 relative">
         {loading ? (
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(245,185,66,0.4)", fontFamily: "Inter, sans-serif", fontSize: "0.85rem",
-          }}>Loading your canvas...</div>
+          <div className="flex items-center justify-center h-full">
+            <div style={{ color: 'rgba(245,185,66,0.4)', fontFamily: 'Inter', fontSize: 14 }}>Loading canvas...</div>
+          </div>
         ) : (
           <>
-            {cards.length < 4 && (
-              <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
-                <AsciiFish />
-              </div>
-            )}
-            {cards.length === 0 && (
-              <div style={{
-                position: "absolute", inset: 0,
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                pointerEvents: "none", gap: 16, zIndex: 1,
-              }}>
-                <div style={{
-                  color: "rgba(245,185,66,0.35)",
-                  fontFamily: "'Playfair Display', serif",
-                  fontStyle: "italic", fontSize: "1.5rem",
-                }}>The canvas is empty.</div>
-                <div style={{
-                  color: "rgba(240,236,224,0.18)",
-                  fontFamily: "Inter, sans-serif", fontSize: "0.82rem",
-                }}>Press + New to begin writing.</div>
-              </div>
-            )}
+            {docs.length < 4 && <AsciiFish />}
             <InfiniteCanvas
-              cards={cards}
-              onOpen={id => navigate(`/doc/${id}`)}
-              onPositionChange={handlePositionChange}
+              documents={docs}
+              onOpen={onOpen}
+              onCreate={handleCreate}
+              onMove={handleMove}
+              onDelete={handleDelete}
             />
+            {docs.length === 0 && (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                style={{ zIndex: 5 }}
+              >
+                <div
+                  className="text-6xl font-bold tracking-widest mb-4"
+                  style={{ color: 'rgba(245,185,66,0.08)', fontFamily: 'Inter, system-ui' }}
+                >
+                  PULP
+                </div>
+                <div
+                  className="text-sm"
+                  style={{ color: 'rgba(245,185,66,0.25)', fontFamily: 'Playfair Display, serif', fontStyle: 'italic' }}
+                >
+                  Double-click the canvas to begin your first document
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {/* Search modal */}
+      {showSearch && (
+        <div
+          className="fixed inset-0 flex items-start justify-center pt-24"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', zIndex: 50 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowSearch(false); }}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl overflow-hidden"
+            style={{
+              background: '#1a0800',
+              border: '1px solid rgba(245,185,66,0.2)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
+            }}
+          >
+            <input
+              autoFocus
+              className="w-full px-5 py-4 text-base bg-transparent outline-none"
+              style={{ color: '#f0ece0', fontFamily: 'Inter, system-ui', borderBottom: '1px solid rgba(245,185,66,0.1)' }}
+              placeholder="Search documents..."
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+            />
+            <SearchResults q={searchQ} onOpen={(id) => { onOpen(id); setShowSearch(false); }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchResults({ q, onOpen }: { q: string; onOpen: (id: string) => void }) {
+  const [results, setResults] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!q.trim()) { setResults([]); return; }
+    const t = setTimeout(() => {
+      api.search(q).then(setResults).catch(() => setResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  if (!results.length && q) {
+    return <div className="px-5 py-4 text-sm" style={{ color: 'rgba(240,236,224,0.3)', fontFamily: 'Inter' }}>No results</div>;
+  }
+
+  return (
+    <div>
+      {results.map(r => {
+        const meta = MODE_META[r.mode as WritingMode] || MODE_META.prose;
+        return (
+          <button
+            key={r.id}
+            className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/5 transition-colors"
+            onClick={() => onOpen(r.id)}
+          >
+            <span>{meta.emoji}</span>
+            <div>
+              <div style={{ color: '#f0ece0', fontFamily: 'Inter', fontSize: 13 }}>{r.title}</div>
+              <div style={{ color: 'rgba(240,236,224,0.35)', fontSize: 11 }}>{r.snippet?.slice(0, 80)}</div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
