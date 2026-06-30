@@ -4,7 +4,7 @@ import type { CanvasDoc } from '../lib/api';
 import type { WritingMode } from '../types';
 import { MODE_META } from '../types';
 import InfiniteCanvas from '../components/InfiniteCanvas';
-import AsciiFish from '../components/AsciiFish';
+import LivingFish from '../components/LivingFish';
 
 interface Props {
   onOpen: (id: string) => void;
@@ -73,14 +73,23 @@ export default function Library({ onOpen }: Props) {
   }, []);
 
   return (
-    <div className="w-screen h-screen flex flex-col" style={{ background: '#0d0d0d' }}>
+    <div
+      className="w-screen h-screen flex flex-col"
+      style={{
+        background:
+          'radial-gradient(120% 90% at 22% 18%, rgba(255,120,60,0.20), transparent 48%),' +
+          'radial-gradient(90% 80% at 80% 60%, rgba(160,20,0,0.30), transparent 55%),' +
+          '#c81d05',
+      }}
+    >
       {/* Header */}
       <header
         className="flex items-center gap-4 px-6"
         style={{
           height: 48,
-          background: '#1a0800',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(120,14,2,0.55)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(244,171,17,0.18)',
           flexShrink: 0,
           zIndex: 30,
           position: 'relative',
@@ -140,7 +149,7 @@ export default function Library({ onOpen }: Props) {
           </div>
         ) : (
           <>
-            {docs.length < 4 && <AsciiFish />}
+            <LivingFish />
             <InfiniteCanvas
               documents={docs}
               onOpen={onOpen}

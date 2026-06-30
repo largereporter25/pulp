@@ -9,6 +9,27 @@ from api.models import Document
 router = APIRouter(tags=["export"])
 
 
+# The fpdf2 core fonts (Courier/Helvetica/Times) are Latin-1 only, so smart
+# punctuation (em dashes, curly quotes, ellipses) must be normalized before
+# rendering. This keeps PDF export robust without bundling a Unicode TTF.
+_PDF_REPLACEMENTS = {
+    "\u2014": "--",  # em dash
+    "\u2013": "-",   # en dash
+    "\u2018": "'", "\u2019": "'",  # curly single quotes
+    "\u201c": '"', "\u201d": '"',  # curly double quotes
+    "\u2026": "...",  # ellipsis
+    "\u00a0": " ",    # non-breaking space
+    "\u2022": "*",    # bullet
+}
+
+
+def pdf_safe(text: str) -> str:
+    """Normalize text to a Latin-1-safe form for fpdf2 core fonts."""
+    for src, dst in _PDF_REPLACEMENTS.items():
+        text = text.replace(src, dst)
+    return text.encode("latin-1", "replace").decode("latin-1")
+
+
 def extract_text_from_content(content_str: str) -> str:
     """Extract plain text from ProseMirror JSON or raw text."""
     if not content_str:
@@ -114,13 +135,13 @@ async def export_pdf(doc_id: str, db: AsyncSession = Depends(get_db)):
     # Title page
     pdf.set_font("Courier", "B", 16)
     pdf.set_y(80)
-    pdf.cell(0, 10, doc.title.upper(), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, pdf_safe(doc.title.upper()), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Courier", "", 12)
     pdf.cell(0, 8, "Written by", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(60)
     pdf.set_font("Courier", "", 9)
     pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 6, "Created with PULP — pulp.to", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, pdf_safe("Created with PULP — pulp.to"), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0)
 
     pdf.add_page()
@@ -135,6 +156,7 @@ async def export_pdf(doc_id: str, db: AsyncSession = Depends(get_db)):
                 c.get("text", "") for c in node.get("content", []) if c.get("type") == "text"
             )
 
+            text = pdf_safe(text)
             if t == "scene_heading":
                 pdf.set_font("Courier", "B", 12)
                 pdf.cell(0, 6, text.upper(), new_x="LMARGIN", new_y="NEXT")
@@ -168,7 +190,7 @@ async def export_pdf(doc_id: str, db: AsyncSession = Depends(get_db)):
         for child in pm.get("content", []):
             walk(child)
     except Exception:
-        plain = extract_text_from_content(doc.content)
+        plain = pdf_safe(extract_text_from_content(doc.content))
         pdf.multi_cell(0, 6, plain)
 
     # Footer on each page

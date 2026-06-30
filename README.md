@@ -1,85 +1,62 @@
-# PULP — Infinite Writing Canvas
+# Pulp — The Infinite Writing Canvas
 
-> *"Ideas are like fish. If you want to catch the big fish, you've got to go deeper."*  
-> — David Lynch
+Pulp is a free, open writing studio for **screenplays, prose, poems, songs, and notes** — everything the expensive tools charge for, on one infinite canvas. Think Figma for writing: pan, zoom, and arrange your documents on a boundless board, with a living "pulping fish" drifting behind your work.
 
-Pulp is the next-gen free writing platform for screenwriters, poets, novelists, songwriters, and note-takers. It replaces Final Draft, Scrivener, Bear, and Notion — for free, forever.
+Design language inspired by [pulp.to](https://www.pulp.to/): deep red canvas, golden type, Playfair Display + JetBrains Mono.
 
-## Features
+## Architecture
 
-- 🎬 **Screenplay** — WGA-standard formatting, Tab-cycle elements, Fountain export
-- 📖 **Prose** — Clean long-form writing, headings, rich formatting
-- 📜 **Poem** — Generous line-height, stanza breaks, centered layout
-- 🎵 **Song** — Verse/Chorus/Bridge structure, chord annotations
-- 📝 **Notes** — Markdown-first, [[WikiLinks]], backlinks
-- ∞ **Infinite Canvas** — Drag documents anywhere, pan and zoom freely
-- 🐟 **The Fish** — David Lynch's swimming fish ASCII mascot
-- 🎯 **Focus Mode** — Strip everything away. Just you and the page.
-- 📤 **Export** — PDF, Fountain, DOCX, TXT
+Python-first, by design:
 
-## Quick Start (Local)
+- **Backend — Python / FastAPI** (`main.py`, `api/`)
+  - Documents CRUD, canvas positions, full-text search & backlinks
+  - **All exports generated in Python**: PDF (fpdf2), DOCX (python-docx), Fountain, TXT
+  - **The pulping fish is generated server-side in Python** (`api/routers/fish.py`) — ASCII frames built from the word "pulp" plus a sine motion path; the frontend just plays them back
+  - SQLAlchemy (async) over **SQLite** locally, **Neon Postgres** in production
+- **Frontend — React + Vite** (`src/`)
+  - Infinite canvas (pan / zoom / drag), 5 writing modes, command palette, autosave
+  - `LivingFish` plays the Python-generated fish as the canvas background
+
+## Run locally
 
 ```bash
-# 1. Install dependencies
-npm install
+# 1. Backend (Python)
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# 2. Build frontend
-npm run build
-
-# 3. Run Pulp
-python main.py
-# → http://localhost:8000
-```
-
-## Dev Mode (hot reload)
-
-```bash
-# Terminal 1
 uvicorn main:app --reload --port 8000
 
-# Terminal 2  
-npm run dev
-# → http://localhost:5173
+# 2. Frontend (in another terminal)
+npm install
+npm run dev          # http://localhost:5000 (proxies /api -> :8000)
 ```
 
-## Deploy to Vercel + Neon
+No database setup needed locally — Pulp creates `pulp.db` (SQLite) automatically.
 
-1. Push this repo to GitHub
-2. Import project in Vercel
-3. Add env var: `DATABASE_URL=postgresql://...` (from Neon dashboard)
-4. Framework: Vite
-5. Build command: `npm run build`
-6. Output directory: `dist`
-7. Deploy ✓
+## Deploy (Vercel + Neon)
 
-## Tech Stack
+1. Push to GitHub and import the repo in Vercel.
+2. Vercel auto-detects: build command `npm run build`, output `dist/`, Python serverless function at `api/index.py`.
+3. Set the environment variable `DATABASE_URL` to your Neon connection string (`postgresql://...`). The backend rewrites it to the async driver automatically.
+4. Deploy. The SPA is served statically; `/api/*` routes to the FastAPI app.
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React + Vite + TypeScript + Tailwind |
-| Backend | **Python FastAPI** |
-| Database | SQLite (local) / Neon Postgres (prod) |
-| ORM | SQLAlchemy async |
-| Export | fpdf2 (PDF), python-docx (DOCX) |
-| Fonts | Courier Prime, Newsreader, Playfair Display, Inter |
+See `.env.example` for configuration.
 
-## Keyboard Shortcuts
+## API (v2)
 
-| Shortcut | Action |
-|----------|--------|
-| `⌘K` | Search |
-| `⌘.` | Toggle Focus Mode |
-| `⌘E` | Export menu |
-| `⌘S` | Force save |
-| `Tab` | Next screenplay element |
-| `Shift+Tab` | Previous screenplay element |
-| `Escape` | Close modals / exit focus |
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET/POST | `/api/v2/documents` | List / create documents |
+| GET/PATCH/DELETE | `/api/v2/documents/{id}` | Read / update / soft-delete |
+| POST | `/api/v2/documents/{id}/duplicate` | Duplicate |
+| GET | `/api/v2/documents/{id}/export/{pdf\|docx\|fountain\|txt}` | Export |
+| GET/PATCH | `/api/v2/canvas/state`, `/api/v2/canvas/positions` | Canvas layout |
+| GET | `/api/v2/search?q=`, `/api/v2/backlinks/{id}` | Search / backlinks |
+| GET | `/api/v2/fish/frames`, `/api/v2/fish/ascii` | The pulping fish |
 
-## Screenplay Elements (Tab cycle)
+## Writing modes
 
-`Scene Heading` → `Action` → `Character` → `Dialogue` → `Parenthetical` → `Transition`
+Screenplay · Prose · Poem · Song · Notes — each with its own typography and page width.
 
 ---
 
-Built with ❤️ — Free. Forever. No paywall.
+Built free, for writers.

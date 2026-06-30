@@ -5,3 +5,10 @@ dist
 .vercel
 *.log
 .DS_Store
+
+.venv/
+*.db
+dist/
+__pycache__/
+*.pyc
+.env

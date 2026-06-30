@@ -94,7 +94,7 @@ export default function InfiniteCanvas({ documents, onOpen, onCreate, onMove, on
     <div
       ref={containerRef}
       className="w-full h-full overflow-hidden relative select-none"
-      style={{ background: '#0d0d0d', cursor: isPanning ? 'grabbing' : dragId ? 'grabbing' : 'default' }}
+      style={{ background: 'transparent', cursor: isPanning ? 'grabbing' : dragId ? 'grabbing' : 'default' }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -106,7 +106,7 @@ export default function InfiniteCanvas({ documents, onOpen, onCreate, onMove, on
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(245,185,66,0.2) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(244,171,17,0.16) 1px, transparent 1px)',
           backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
           backgroundPosition: `${offset.x % (GRID_SIZE * scale)}px ${offset.y % (GRID_SIZE * scale)}px`,
         }}

@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from api.database import init_db
-from api.routers import documents, canvas, export, search
+from api.routers import documents, canvas, export, search, fish
 
 app = FastAPI(
     title="Pulp API",
@@ -39,6 +39,7 @@ app.include_router(documents.router, prefix="/api/v2")
 app.include_router(canvas.router, prefix="/api/v2")
 app.include_router(export.router, prefix="/api/v2")
 app.include_router(search.router, prefix="/api/v2")
+app.include_router(fish.router, prefix="/api/v2")
 
 # Serve Vite build if it exists
 dist_path = Path("dist")
