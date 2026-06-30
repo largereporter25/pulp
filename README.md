@@ -1,62 +1,63 @@
-# Pulp
+# Pulp ✦
 
-**The canvas where every script begins.** A free, screenplay-first writing studio for scripts, poems, songs, and prose — everything the expensive tools charge for, open to everyone.
+> *Ideas are like fish. If you want to catch the big fish, you've got to go deeper.* — David Lynch
 
-![Pulp](https://img.shields.io/badge/status-live-f5b942)
+**Pulp** is a next-generation, free, infinite-canvas writing tool for screenwriters, novelists, poets, songwriters, and note-takers. Replaces Final Draft, Scrivener, Bear, and Notion — at zero cost.
+
+---
 
 ## Features
 
-- **Screenplay engine** — Industry-standard formatting (Scene / Action / Character / Dialogue / Parenthetical / Transition) with a persistent formatting toolbar, `Tab` to cycle elements, `Enter` to continue intelligently, `⌥1–6` to set element type, smart auto-capitalization, and auto-detection of scene headings & transitions.
-- **Title Page** — Standard screenplay front matter (title, author, based-on, draft date, contact) on a dedicated, switchable page that exports with the script.
-- **Transition menu** — One-click insert of the common transitions (CUT TO:, DISSOLVE TO:, SMASH CUT TO:, and more).
-- **Four writing modes** — Screenplay, Poem, Song, and Prose, each with its own typographic soul.
-- **The page is a canvas** — A floating, cinematic dark-studio surface, not just a text box.
-- **Cloud autosave** — Every keystroke persists to Neon Postgres. Pick up anywhere.
-- **Focus mode** — `⌘.` strips the UI to just you and the page.
-- **Export** — Print/PDF, Fountain (`.fountain`), and plain text.
-- **Live stats** — Word count and accurate screenplay page estimates.
+- 🎬 **Screenplay** — WGA-standard formatting
+- 📖 **Prose** — Long-form essays, journalism, fiction
+- 📜 **Poem** — Lyrical layout with breathing room
+- 🎵 **Song** — Verse/chorus/bridge structure
+- 📝 **Notes** — Markdown-first with `[[WikiLinks]]`
+- 🌊 **Infinite Canvas** — Drag, zoom, pan freely
+- 🐟 **The Fish** — Hover for a David Lynch quote
+- 📤 **Export** — PDF, Fountain, Word (.docx), TXT
+- 🔄 **Autosave** — Every keystroke saved automatically
+- 🌑 **Focus Mode** — `Cmd+.` hides all chrome
 
-## Keyboard shortcuts
+---
 
-| Action | Shortcut |
-| --- | --- |
-| Set element type | `⌘1`–`⌘6` |
-| Cycle element type | `Tab` / `Shift+Tab` |
-| New element | `Enter` |
-| Save now | `⌘S` |
-| Toggle focus mode | `⌘.` |
-
-## Stack
-
-- **Frontend** — Vite + React + TypeScript + Tailwind CSS
-- **Backend** — Vercel serverless functions (`/api`)
-- **Database** — Neon Postgres (`@neondatabase/serverless`)
-
-## Local development
+## Run Locally (Python)
 
 ```bash
-npm install
-# set DATABASE_URL in .env (Neon connection string)
-node devserver.mjs   # local API shim on :5050
-npm run dev          # Vite on :5000
+npm install && pip install -r requirements.txt
+npm run build
+python main.py
+# → http://localhost:8000
 ```
 
-## Deploy
+## Dev Mode
 
-Deployed on Vercel. Set the `DATABASE_URL` environment variable to your Neon connection string. The `documents` table:
-
-```sql
-CREATE TABLE documents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL DEFAULT 'Untitled',
-  mode text NOT NULL DEFAULT 'screenplay',
-  content jsonb NOT NULL DEFAULT '[]'::jsonb,
-  synopsis text NOT NULL DEFAULT '',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+```bash
+# Terminal 1
+npm run dev
+# Terminal 2
+DEV=true python main.py
 ```
 
 ---
 
-Built free, for writers.
+## Deploy to Vercel + Neon
+
+1. Push repo to GitHub
+2. Connect to [vercel.com](https://vercel.com)
+3. Add env var: `DATABASE_URL=postgresql+asyncpg://...` (from Neon dashboard)
+4. Deploy
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Cmd+.` | Toggle Focus Mode |
+| `Cmd+E` | Export menu |
+| `Escape` | Close popover |
+
+---
+
+*Pulp. The canvas never ends.*

@@ -1,65 +1,67 @@
-import type { Document, WritingMode, ScreenplayElement, TextBlock, CanvasCard } from "@shared/types";
+const BASE = (import.meta as any).env?.VITE_API_BASE ?? "/api/v2";
 
-const BASE = "/api";
+export interface Doc {
+  id: string;
+  title: string;
+  mode: "screenplay" | "prose" | "poem" | "song" | "notes";
+  content: Record<string, unknown>;
+  synopsis: string;
+  tags: string[];
+  canvas_x: number;
+  canvas_y: number;
+  word_count: number;
+  page_count: number;
+  bpm?: number;
+  key_signature?: string;
+  draft_date?: string;
+  contact_info?: string;
+  created_at: string;
+  updated_at: string;
+}
 
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg || `Request failed (${res.status})`);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json();
+export interface CanvasCard {
+  id: string;
+  title: string;
+  mode: string;
+  x: number;
+  y: number;
+  word_count: number;
+  page_count: number;
+  tags: string[];
+  updated_at: string;
+}
+
+async function req<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+  return res.json() as Promise<T>;
 }
 
 export const api = {
-  list: (params?: { mode?: string; q?: string }) => {
-    const qs = params ? "?" + new URLSearchParams(params as Record<string, string>).toString() : "";
-    return fetch(`${BASE}/documents${qs}`).then((r) => json<Document[]>(r));
+  listDocuments: (params?: { mode?: string; tag?: string; q?: string }) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v))
+    ).toString();
+    return req<Doc[]>(`/documents${qs ? "?" + qs : ""}`);
   },
-
-  get: (id: string) => fetch(`${BASE}/documents/${id}`).then((r) => json<Document>(r)),
-
-  create: (data: { title?: string; mode?: WritingMode; content?: unknown; synopsis?: string }) =>
-    fetch(`${BASE}/documents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((r) => json<Document>(r)),
-
-  update: (
-    id: string,
-    data: Partial<{
-      title: string;
-      mode: WritingMode;
-      content: ScreenplayElement[] | TextBlock[];
-      synopsis: string;
-      canvas_x: number;
-      canvas_y: number;
-      tags: string[];
-    }>
-  ) =>
-    fetch(`${BASE}/documents/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((r) => json<Document>(r)),
-
-  remove: (id: string) => fetch(`${BASE}/documents/${id}`, { method: "DELETE" }).then((r) => json<void>(r)),
-
-  duplicate: (id: string) =>
-    fetch(`${BASE}/documents/${id}/duplicate`, { method: "POST" }).then((r) => json<Document>(r)),
-
-  canvasState: () => fetch(`${BASE}/canvas/state`).then((r) => json<{ documents: CanvasCard[] }>(r)),
-
+  createDocument: (payload: Partial<Doc>) =>
+    req<Doc>("/documents", { method: "POST", body: JSON.stringify(payload) }),
+  getDocument: (id: string) => req<Doc>(`/documents/${id}`),
+  updateDocument: (id: string, payload: Partial<Doc>) =>
+    req<Doc>(`/documents/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteDocument: (id: string) =>
+    fetch(`${BASE}/documents/${id}`, { method: "DELETE" }),
+  duplicateDocument: (id: string) =>
+    req<Doc>(`/documents/${id}/duplicate`, { method: "POST" }),
+  getCanvasState: () => req<{ documents: CanvasCard[] }>("/canvas/state"),
   updateCanvasPositions: (positions: { id: string; x: number; y: number }[]) =>
-    fetch(`${BASE}/canvas/positions`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ positions }),
-    }).then((r) => json<void>(r)),
-
-  search: (q: string) => fetch(`${BASE}/search?q=${encodeURIComponent(q)}`).then((r) => json<Document[]>(r)),
-
+    req("/canvas/positions", { method: "PATCH", body: JSON.stringify(positions) }),
+  search: (q: string) => req<Doc[]>(`/search?q=${encodeURIComponent(q)}`),
+  backlinks: (id: string) =>
+    req<{ id: string; title: string; mode: string }[]>(`/backlinks/${id}`),
   exportUrl: (id: string, format: "pdf" | "fountain" | "docx" | "txt") =>
     `${BASE}/documents/${id}/export/${format}`,
 };
